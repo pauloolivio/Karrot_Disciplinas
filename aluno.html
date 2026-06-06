@@ -8,7 +8,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <script src="firebase-config.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -18,43 +17,47 @@
             min-height: 100vh;
             padding: 20px;
         }
-        .app-container { width: 100%; max-width: 800px; margin: 0 auto; }
+        .app-container { width: 100%; max-width: 600px; margin: 0 auto; }
+        
+        /* Header */
         .header {
             background: rgba(255,255,255,0.95);
             border-radius: 20px;
-            padding: 20px 25px;
+            padding: 15px 20px;
             margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             flex-wrap: wrap;
-            gap: 15px;
+            gap: 10px;
         }
-        .user-info { display: flex; align-items: center; gap: 15px; }
+        .user-info { display: flex; align-items: center; gap: 12px; }
         .avatar {
-            width: 50px; height: 50px;
+            width: 45px; height: 45px;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: 20px;
             color: white;
         }
+        .user-details h2 { font-size: 16px; color: #1f2937; margin-bottom: 2px; }
+        .user-details p { font-size: 11px; color: #6b7280; }
         .status-badge {
             background: #10b981;
-            padding: 6px 12px;
+            padding: 5px 10px;
             border-radius: 20px;
-            font-size: 12px;
+            font-size: 11px;
             color: white;
         }
         .logout-btn {
             background: #f3f4f6;
-            padding: 10px 18px;
+            padding: 8px 15px;
             border-radius: 12px;
             cursor: pointer;
             border: none;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             transition: all 0.3s;
         }
@@ -64,102 +67,183 @@
             transform: translateY(-2px);
         }
         
+        /* Containers */
         .waiting-container {
             background: white;
             border-radius: 24px;
-            padding: 60px 30px;
+            padding: 50px 25px;
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
-        .waiting-container i { font-size: 60px; color: #667eea; margin-bottom: 20px; }
-        .waiting-container h3 { font-size: 24px; color: #1f2937; margin-bottom: 10px; }
+        .waiting-container i { font-size: 50px; color: #667eea; margin-bottom: 15px; }
+        .waiting-container h3 { font-size: 22px; color: #1f2937; margin-bottom: 8px; }
+        .waiting-container p { font-size: 14px; color: #6b7280; }
         
         .question-container {
             background: white;
             border-radius: 24px;
-            padding: 30px;
+            padding: 20px;
             display: none;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
-        .question-container.active { display: block; animation: fadeIn 0.5s ease; }
+        .question-container.active { display: block; animation: fadeIn 0.4s ease; }
         
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
         
-        .timer {
-            position: relative;
-            width: 80px;
-            height: 80px;
-            margin: 0 auto 15px;
+        /* Timer */
+        .timer-area {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
         }
-        .timer-svg { transform: rotate(-90deg); }
-        .timer-circle-bg { stroke: #e5e7eb; }
         .timer-circle {
-            stroke: #667eea;
-            stroke-dasharray: 283;
-            stroke-dashoffset: 0;
-            transition: stroke-dashoffset 1s linear;
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
         }
-        .timer-text {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 24px;
+        .timer-circle span {
+            font-size: 28px;
             font-weight: bold;
-            color: #667eea;
+            color: white;
         }
         
-        .question-text { font-size: 22px; font-weight: 700; color: #1f2937; text-align: center; margin-bottom: 25px; }
+        /* Questão */
+        .question-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: #1f2937;
+            text-align: center;
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
         
+        /* Alternativas - Layout Compacto */
         .alternativas-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin-bottom: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
         }
         .alternativa-btn {
             background: #f3f4f6;
             border: 2px solid #e5e7eb;
-            padding: 15px;
-            border-radius: 16px;
+            padding: 12px 15px;
+            border-radius: 14px;
             cursor: pointer;
-            text-align: center;
-            transition: all 0.3s;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
-        .alternativa-btn:hover:not(:disabled) { transform: translateY(-3px); background: #e5e7eb; }
-        .alternativa-btn.selected { background: #10b981; color: white; border-color: #10b981; }
-        .alternativa-btn.disabled { opacity: 0.5; cursor: not-allowed; }
-        .alternativa-letra { font-size: 24px; font-weight: bold; margin-bottom: 8px; }
+        .alternativa-btn:hover:not(:disabled) {
+            transform: translateX(5px);
+            background: #e5e7eb;
+            border-color: #667eea;
+        }
+        .alternativa-btn.selected {
+            background: #10b981;
+            color: white;
+            border-color: #10b981;
+        }
+        .alternativa-btn.disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .alternativa-letra {
+            width: 36px;
+            height: 36px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            color: #667eea;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .alternativa-btn.selected .alternativa-letra {
+            background: rgba(255,255,255,0.3);
+            color: white;
+        }
+        .alternativa-texto {
+            flex: 1;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: left;
+        }
         
-        .grafico-container {
+        /* Status de Respostas - Apenas contador (SEM MOSTRAR DISTRIBUIÇÃO) */
+        .status-container {
             background: #f9fafb;
-            border-radius: 20px;
-            padding: 20px;
-            margin-top: 20px;
-            display: none;
+            border-radius: 16px;
+            padding: 15px;
+            margin-top: 15px;
         }
-        .grafico-container.visible { display: block; }
+        .status-header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .status-header h4 {
+            font-size: 13px;
+            color: #6b7280;
+            font-weight: normal;
+        }
+        .status-stats {
+            display: flex;
+            justify-content: center;
+            align-items: baseline;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 36px;
+            font-weight: bold;
+            color: #667eea;
+        }
+        .stat-number.responderam {
+            color: #10b981;
+        }
+        .stat-number.total {
+            color: #8b5cf6;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+        .separator {
+            font-size: 24px;
+            color: #d1d5db;
+            font-weight: bold;
+        }
         
-        canvas { max-height: 250px; }
-        
+        /* Outros containers */
         .finished-container, .answered-container {
             background: white;
             border-radius: 24px;
-            padding: 50px;
+            padding: 40px 25px;
             text-align: center;
             display: none;
         }
         .disconnected-container {
             background: white;
             border-radius: 24px;
-            padding: 50px;
+            padding: 40px 25px;
             text-align: center;
             display: none;
         }
-        .disconnected-container i { font-size: 60px; color: #ef4444; margin-bottom: 20px; }
         .pulse { animation: pulse 1.5s infinite; }
         @keyframes pulse {
             0% { opacity: 1; transform: scale(1); }
@@ -167,6 +251,7 @@
             100% { opacity: 1; transform: scale(1); }
         }
         
+        /* Modal de Feedback */
         .feedback-modal {
             position: fixed;
             top: 0;
@@ -186,48 +271,46 @@
         }
         .feedback-modal-content {
             background: white;
-            max-width: 500px;
+            max-width: 450px;
             width: 90%;
             border-radius: 24px;
-            padding: 30px;
-            position: relative;
+            padding: 25px;
             max-height: 85vh;
             overflow-y: auto;
         }
         .feedback-header {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
         .feedback-header i {
-            font-size: 50px;
+            font-size: 45px;
             color: #10b981;
         }
         .feedback-explicacao {
             background: #e0f2fe;
-            padding: 20px;
+            padding: 15px;
             border-radius: 16px;
-            margin-bottom: 20px;
+            margin-bottom: 15px;
         }
         .feedback-resposta {
             background: #d1fae5;
-            padding: 15px;
+            padding: 12px;
             border-radius: 16px;
-            margin-top: 15px;
+            margin-top: 12px;
             text-align: center;
         }
         .btn-fechar-feedback {
             width: 100%;
-            padding: 14px;
+            padding: 12px;
             background: #10b981;
             color: white;
             border: none;
             border-radius: 12px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
-            margin-top: 20px;
+            margin-top: 15px;
         }
-        .btn-fechar-feedback:hover { background: #059669; }
         
         .toast {
             position: fixed;
@@ -236,10 +319,11 @@
             transform: translateX(-50%);
             background: #10b981;
             color: white;
-            padding: 12px 24px;
+            padding: 10px 20px;
             border-radius: 12px;
             z-index: 1000;
-            animation: fadeOut 2s ease;
+            animation: fadeOut 2.5s ease;
+            font-size: 13px;
         }
         .toast.warning { background: #f59e0b; }
         .toast.error { background: #ef4444; }
@@ -262,10 +346,10 @@
             z-index: 3000;
         }
         .spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #667eea;
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
@@ -285,11 +369,9 @@
                     <p>RA: <span id="alunoRA">---</span></p>
                 </div>
             </div>
-            <div style="display: flex; gap: 10px;">
+            <div style="display: flex; gap: 8px;">
                 <div class="status-badge"><i class="fas fa-circle"></i> Online</div>
-                <button class="logout-btn" onclick="confirmarLogout()">
-                    <i class="fas fa-sign-out-alt"></i> Sair
-                </button>
+                <button class="logout-btn" onclick="confirmarLogout()"><i class="fas fa-sign-out-alt"></i> Sair</button>
             </div>
         </div>
 
@@ -300,36 +382,48 @@
         </div>
 
         <div class="question-container" id="questionContainer">
-            <div class="timer">
-                <svg class="timer-svg" width="80" height="80" viewBox="0 0 100 100">
-                    <circle class="timer-circle-bg" cx="50" cy="50" r="45" fill="none" stroke-width="8"/>
-                    <circle class="timer-circle" id="timerCircle" cx="50" cy="50" r="45" fill="none" stroke-width="8" stroke="#667eea"/>
-                </svg>
-                <div class="timer-text" id="timerText">0</div>
+            <div class="timer-area">
+                <div class="timer-circle">
+                    <span id="timerText">0</span>
+                </div>
             </div>
             <div class="question-text" id="questionText"></div>
             <div class="alternativas-grid" id="alternativasGrid"></div>
-            <div class="grafico-container" id="graficoContainer">
-                <div style="text-align: center; margin-bottom: 10px;"><i class="fas fa-chart-bar"></i> Respostas da Turma</div>
-                <canvas id="votosChart"></canvas>
+            
+            <!-- Status de Respostas - Apenas contador (SEM MOSTRAR DISTRIBUIÇÃO) -->
+            <div class="status-container" id="statusContainer">
+                <div class="status-header">
+                    <h4><i class="fas fa-users"></i> Respostas da Turma</h4>
+                </div>
+                <div class="status-stats">
+                    <div class="stat-item">
+                        <div class="stat-number responderam" id="responderamCount">0</div>
+                        <div class="stat-label">Responderam</div>
+                    </div>
+                    <div class="separator">|</div>
+                    <div class="stat-item">
+                        <div class="stat-number total" id="totalAlunos">0</div>
+                        <div class="stat-label">Total na Sala</div>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div class="finished-container" id="finishedContainer">
-            <i class="fas fa-clock" style="font-size: 50px; color: #ef4444;"></i>
-            <h3>Tempo Esgotado!</h3>
+            <i class="fas fa-clock" style="font-size: 45px; color: #ef4444;"></i>
+            <h3 style="margin-top: 10px;">Tempo Esgotado!</h3>
             <p>Aguardando o professor...</p>
         </div>
 
         <div class="answered-container" id="answeredContainer">
-            <i class="fas fa-check-circle" style="font-size: 50px; color: #10b981;"></i>
-            <h3>Resposta Registrada!</h3>
+            <i class="fas fa-check-circle" style="font-size: 45px; color: #10b981;"></i>
+            <h3 style="margin-top: 10px;">Resposta Registrada!</h3>
             <p>Aguardando o resultado da turma...</p>
         </div>
 
         <div class="disconnected-container" id="disconnectedContainer">
-            <i class="fas fa-plug"></i>
-            <h3>Sessão Encerrada!</h3>
+            <i class="fas fa-plug" style="font-size: 45px; color: #ef4444;"></i>
+            <h3 style="margin-top: 10px;">Sessão Encerrada!</h3>
             <p>O professor encerrou a sessão. Você será redirecionado...</p>
         </div>
     </div>
@@ -338,13 +432,16 @@
         let currentQuestionId = null;
         let hasAnswered = false;
         let timerInterval = null;
-        let votosChart = null;
-        let votosListener = null;
         let heartbeatInterval = null;
         let isClosing = false;
         let feedbackListener = null;
         let aguardandoResposta = false;
-        let questoesRespondidas = new Set(); // Guarda IDs das questões que o aluno já respondeu
+        let questoesRespondidas = new Set();
+        
+        // Referências para listeners
+        let alunosListener = null;
+        let respostasListener = null;
+        let totalAlunosNaSala = 0;
 
         function loadAlunoData() {
             const nome = sessionStorage.getItem('alunoNome');
@@ -369,7 +466,6 @@
                         questoesRespondidas.add(perguntaId);
                     }
                 }
-                console.log(`📚 Aluno já respondeu ${questoesRespondidas.size} questões`);
             } catch (error) {
                 console.error("Erro ao carregar questões respondidas:", error);
             }
@@ -397,40 +493,55 @@
             heartbeatInterval = setInterval(updateHeartbeat, 15000);
         }
 
-        function hideChart() {
-            const graficoContainer = document.getElementById('graficoContainer');
-            graficoContainer.classList.remove('visible');
-        }
-        
-        function showChart() {
-            const graficoContainer = document.getElementById('graficoContainer');
-            graficoContainer.classList.add('visible');
+        // Função para atualizar APENAS a quantidade de respostas (SEM DISTRIBUIÇÃO)
+        async function atualizarStatusRespostas() {
+            if (!currentQuestionId) return;
+            
+            try {
+                // Buscar total de alunos online
+                const alunosSnap = await window.db.ref('alunos').once('value');
+                const alunos = alunosSnap.val() || {};
+                const totalAlunos = Object.values(alunos).filter(a => a.online === true).length;
+                totalAlunosNaSala = totalAlunos;
+                
+                // Buscar respostas da questão atual
+                const respostasSnap = await window.db.ref(`respostas/${currentQuestionId}`).once('value');
+                const respostas = respostasSnap.val() || {};
+                const totalResponderam = Object.keys(respostas).length;
+                
+                // Atualizar UI - APENAS OS NÚMEROS
+                document.getElementById('totalAlunos').textContent = totalAlunos;
+                document.getElementById('responderamCount').textContent = totalResponderam;
+                
+            } catch (error) {
+                console.error("Erro ao atualizar status:", error);
+            }
         }
 
-        function updateChart(votos) {
-            if (!hasAnswered && !aguardandoResposta) {
-                return;
+        // Listener para mudanças nos alunos
+        function listenToAlunosStatus() {
+            if (alunosListener) {
+                alunosListener.off();
             }
             
-            const ctx = document.getElementById('votosChart').getContext('2d');
-            if (votosChart) votosChart.destroy();
+            alunosListener = window.db.ref('alunos').on('value', () => {
+                if (currentQuestionId) {
+                    atualizarStatusRespostas();
+                }
+            });
+        }
+
+        // Listener para mudanças nas respostas
+        function listenToRespostas() {
+            if (!currentQuestionId) return;
             
-            votosChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['A', 'B', 'C', 'D'],
-                    datasets: [{
-                        label: 'Votos',
-                        data: [votos.A || 0, votos.B || 0, votos.C || 0, votos.D || 0],
-                        backgroundColor: ['#667eea', '#764ba2', '#ec489a', '#f59e0b'],
-                        borderRadius: 8
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: { legend: { display: false } },
-                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            if (respostasListener) {
+                respostasListener.off();
+            }
+            
+            respostasListener = window.db.ref(`respostas/${currentQuestionId}`).on('value', () => {
+                if (currentQuestionId) {
+                    atualizarStatusRespostas();
                 }
             });
         }
@@ -442,7 +553,10 @@
             letras.forEach(letra => {
                 const btn = document.createElement('button');
                 btn.className = 'alternativa-btn';
-                btn.innerHTML = `<div class="alternativa-letra">${letra}</div><div>${alternativas[letra] || ''}</div>`;
+                btn.innerHTML = `
+                    <div class="alternativa-letra">${letra}</div>
+                    <div class="alternativa-texto">${alternativas[letra] || ''}</div>
+                `;
                 btn.onclick = () => submitAnswer(letra);
                 if (hasAnswered) btn.classList.add('disabled');
                 grid.appendChild(btn);
@@ -461,8 +575,6 @@
             hasAnswered = true;
             aguardandoResposta = false;
             
-            showChart();
-            
             try {
                 document.querySelectorAll('.alternativa-btn').forEach(btn => btn.classList.add('disabled'));
                 
@@ -478,17 +590,22 @@
                     ra: sessionStorage.getItem('alunoRA')
                 });
                 
-                // Marcar que respondeu esta questão
                 questoesRespondidas.add(currentQuestionId);
                 
                 await window.db.ref(`votos/${currentQuestionId}/${letra}`).transaction(current => (current || 0) + 1);
                 
                 showToast(`✅ Você respondeu ${letra}!`);
                 
+                // Atualizar status
+                await atualizarStatusRespostas();
+                
                 document.getElementById('questionContainer').classList.remove('active');
                 document.getElementById('answeredContainer').style.display = 'block';
                 
                 if (timerInterval) clearInterval(timerInterval);
+                
+                // Continuar ouvindo mudanças nas respostas
+                listenToRespostas();
                 
             } catch (error) {
                 console.error(error);
@@ -496,7 +613,6 @@
                 hasAnswered = false;
                 document.querySelectorAll('.alternativa-btn').forEach(btn => btn.classList.remove('disabled'));
                 if (btns[index]) btns[index].classList.remove('selected');
-                hideChart();
             }
         }
 
@@ -505,14 +621,9 @@
             
             let timeLeft = segundos;
             const timerText = document.getElementById('timerText');
-            const timerCircle = document.getElementById('timerCircle');
-            const circumference = 2 * Math.PI * 45;
             
             function update() {
                 timerText.textContent = timeLeft;
-                const offset = circumference - (timeLeft / segundos) * circumference;
-                timerCircle.style.strokeDasharray = circumference;
-                timerCircle.style.strokeDashoffset = offset;
                 
                 if (timeLeft <= 0) {
                     clearInterval(timerInterval);
@@ -521,7 +632,6 @@
                         showToast("⏰ Tempo esgotou!", "warning");
                         document.getElementById('questionContainer').classList.remove('active');
                         document.getElementById('finishedContainer').style.display = 'block';
-                        hideChart();
                     }
                 }
                 timeLeft--;
@@ -538,34 +648,22 @@
             document.getElementById('answeredContainer').style.display = 'none';
             document.getElementById('disconnectedContainer').style.display = 'none';
             
-            hideChart();
-            
             if (timerInterval) clearInterval(timerInterval);
-            if (votosListener) {
-                votosListener.off();
-                votosListener = null;
-            }
             
             hasAnswered = false;
             aguardandoResposta = false;
         }
 
-        // FUNÇÃO CORRIGIDA: Feedback só aparece se o aluno respondeu a questão
         function mostrarFeedback(feedback, feedbackId) {
             const userId = sessionStorage.getItem('userId');
             const questaoId = feedback.questaoId;
             
-            // Buscar a perguntaId correta baseada na questão
-            // O feedback pode ser para uma pergunta específica
             let perguntaIdRelacionada = null;
             
-            // Verificar se o aluno respondeu a esta questão específica
-            // O feedbackId geralmente é o perguntaId
             if (questoesRespondidas.has(feedbackId)) {
                 perguntaIdRelacionada = feedbackId;
             }
             
-            // Se não encontrar pelo feedbackId, procurar em todas as respostas
             if (!perguntaIdRelacionada) {
                 for (const perguntaId of questoesRespondidas) {
                     if (perguntaId.includes(String(questaoId))) {
@@ -575,13 +673,10 @@
                 }
             }
             
-            // Só mostra o feedback se o aluno respondeu a esta questão
             if (!perguntaIdRelacionada) {
-                console.log("Feedback ignorado - aluno não respondeu esta questão:", feedbackId);
                 return;
             }
             
-            // Verificar se já viu este feedback
             if (sessionStorage.getItem(`feedback_visto_${feedbackId}`)) {
                 return;
             }
@@ -595,24 +690,22 @@
                 <div class="feedback-modal-content">
                     <div class="feedback-header">
                         <i class="fas fa-check-circle"></i>
-                        <h2 style="margin-top: 10px;">📚 Resultado da Questão</h2>
+                        <h2 style="margin-top: 8px;">📚 Resultado da Questão</h2>
                     </div>
-                    
                     <div class="feedback-explicacao">
-                        <p style="font-size: 14px; color: #0369a1; margin-bottom: 10px;">
+                        <p style="font-size: 13px; color: #0369a1; margin-bottom: 8px;">
                             <i class="fas fa-quote-left"></i> <strong>Sobre a questão:</strong>
                         </p>
-                        <p style="font-weight: 500; margin-bottom: 15px;">${feedback.questaoTexto || ''}</p>
+                        <p style="font-weight: 500; margin-bottom: 12px; font-size: 14px;">${feedback.questaoTexto || ''}</p>
                         <div class="feedback-resposta">
                             <strong>✅ Resposta correta: ${feedback.respostaCorreta})</strong><br>
-                            ${feedback.alternativas ? feedback.alternativas[feedback.respostaCorreta] : ''}
+                            <small>${feedback.alternativas ? feedback.alternativas[feedback.respostaCorreta] : ''}</small>
                         </div>
-                        <p style="font-size: 14px; margin-top: 15px;">
+                        <p style="font-size: 13px; margin-top: 12px;">
                             <i class="fas fa-lightbulb"></i> <strong>Explicação:</strong><br>
                             ${feedback.explicacao || ''}
                         </p>
                     </div>
-                    
                     <button class="btn-fechar-feedback" onclick="this.closest('.feedback-modal').remove()">
                         <i class="fas fa-check-circle"></i> Entendi
                     </button>
@@ -621,7 +714,6 @@
             
             document.body.appendChild(modal);
             
-            // Som de notificação
             try {
                 const audio = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
                 audio.volume = 0.2;
@@ -629,7 +721,6 @@
             } catch(e) {}
         }
 
-        // FUNÇÃO CORRIGIDA: Listener de feedback só para questões que o aluno respondeu
         function listenToFeedback() {
             if (feedbackListener) {
                 feedbackListener.off();
@@ -641,9 +732,7 @@
                 const feedback = snapshot.val();
                 const feedbackId = snapshot.key;
                 
-                // Verificar se o feedback é válido e se o aluno deve recebê-lo
                 if (feedback && feedback.status === "enviado") {
-                    // Pequeno delay para garantir que o aluno já registrou a resposta
                     setTimeout(() => {
                         mostrarFeedback(feedback, feedbackId);
                     }, 500);
@@ -676,8 +765,9 @@
                     
                     if (heartbeatInterval) clearInterval(heartbeatInterval);
                     if (timerInterval) clearInterval(timerInterval);
-                    if (votosListener) votosListener.off();
                     if (feedbackListener) feedbackListener.off();
+                    if (alunosListener) alunosListener.off();
+                    if (respostasListener) respostasListener.off();
                     
                     const userId = sessionStorage.getItem('userId');
                     if (userId && window.db) {
@@ -708,8 +798,6 @@
                 const pergunta = snapshot.val();
                 const userId = sessionStorage.getItem('userId');
                 
-                console.log("📩 Aluno recebeu:", pergunta);
-                
                 if (pergunta && pergunta.ativa === true) {
                     if (currentQuestionId !== pergunta.id) {
                         resetUI();
@@ -717,16 +805,14 @@
                         hasAnswered = false;
                         aguardandoResposta = true;
                         
-                        hideChart();
-                        
                         if (userId) {
                             const resposta = await window.db.ref(`respostas/${pergunta.id}/${userId}`).once('value');
                             if (resposta.exists()) {
                                 hasAnswered = true;
                                 aguardandoResposta = false;
-                                questoesRespondidas.add(pergunta.id);
-                                showChart();
                                 document.getElementById('answeredContainer').style.display = 'block';
+                                await atualizarStatusRespostas();
+                                listenToRespostas();
                                 return;
                             }
                         }
@@ -738,14 +824,12 @@
                         createAlternatives(pergunta.alternativas);
                         startTimer(pergunta.tempoLimite);
                         
-                        if (votosListener) votosListener.off();
-                        votosListener = window.db.ref(`votos/${pergunta.id}`);
-                        votosListener.on('value', (votosSnap) => {
-                            if (hasAnswered || !aguardandoResposta) {
-                                const votos = votosSnap.val() || { A: 0, B: 0, C: 0, D: 0 };
-                                updateChart(votos);
-                            }
-                        });
+                        // Atualizar status inicial
+                        await atualizarStatusRespostas();
+                        
+                        // Iniciar listeners
+                        listenToAlunosStatus();
+                        listenToRespostas();
                     }
                 } 
                 else if (pergunta && pergunta.ativa === false && currentQuestionId === pergunta.id) {
@@ -754,9 +838,9 @@
                     document.getElementById('answeredContainer').style.display = 'none';
                     document.getElementById('finishedContainer').style.display = 'block';
                     
-                    if (votosListener) {
-                        votosListener.off();
-                        votosListener = null;
+                    if (respostasListener) {
+                        respostasListener.off();
+                        respostasListener = null;
                     }
                     
                     setTimeout(() => {
@@ -765,7 +849,6 @@
                             document.getElementById('waitingContainer').style.display = 'block';
                             currentQuestionId = null;
                             aguardandoResposta = false;
-                            hideChart();
                         }
                     }, 4000);
                 }
@@ -808,7 +891,6 @@
             try {
                 if (userId && window.db) {
                     await window.db.ref(`alunos/${userId}`).remove();
-                    console.log("✅ Aluno removido permanentemente do Firebase");
                 }
             } catch (error) {
                 console.error("Erro ao limpar dados do aluno:", error);
@@ -816,12 +898,12 @@
             
             if (heartbeatInterval) clearInterval(heartbeatInterval);
             if (timerInterval) clearInterval(timerInterval);
-            if (votosListener && votosListener.off) votosListener.off();
             if (feedbackListener && feedbackListener.off) feedbackListener.off();
+            if (alunosListener && alunosListener.off) alunosListener.off();
+            if (respostasListener && respostasListener.off) respostasListener.off();
             
             try {
                 await window.auth.signOut();
-                console.log("✅ Logout do Firebase Auth realizado");
             } catch (error) {
                 console.error("Erro no signOut:", error);
             }
@@ -864,8 +946,6 @@
                 
                 await window.db.ref(`alunos/${userId}`).update({ online: true, ultimaAtividade: Date.now() });
                 await iniciarHeartbeat();
-                
-                // Carregar questões que o aluno já respondeu
                 await carregarQuestoesRespondidas();
             }
             
@@ -873,8 +953,6 @@
             listenToSessionStatus();
             listenToQuestions();
             listenToFeedback();
-            
-            hideChart();
         });
         
         window.confirmarLogout = confirmarLogout;

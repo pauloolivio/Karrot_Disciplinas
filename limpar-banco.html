@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Karoot - Limpeza do Banco de Dados</title>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script src="firebase-config.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: white;
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #1f2937;
+            margin-bottom: 10px;
+        }
+        .warning {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 12px;
+        }
+        .info {
+            background: #e0f2fe;
+            border-left: 4px solid #0284c7;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 12px;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+        }
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        .btn-warning:hover {
+            background: #d97706;
+            transform: translateY(-2px);
+        }
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 12px;
+            display: none;
+        }
+        .status.show {
+            display: block;
+        }
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .status.loading {
+            background: #e0f2fe;
+            color: #0369a1;
+        }
+        .spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 10px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        pre {
+            background: #1f2937;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 12px;
+            overflow-x: auto;
+            font-size: 12px;
+            margin-top: 20px;
+            display: none;
+        }
+        .stats {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        .stats p {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗑️ Limpeza do Banco de Dados</h1>
+        <p>Ferramenta para resetar completamente os dados do sistema</p>
+
+        <div class="warning">
+            <strong>⚠️ ATENÇÃO!</strong><br>
+            Esta ação irá REMOVER PERMANENTEMENTE todos os dados:
+            <ul style="margin-top: 10px; margin-left: 20px;">
+                <li>Todos os alunos cadastrados</li>
+                <li>Todas as respostas de questões</li>
+                <li>Todos os votos e gráficos</li>
+                <li>Todos os feedbacks enviados</li>
+                <li>Sessões ativas</li>
+            </ul>
+        </div>
+
+        <div class="info">
+            <strong>ℹ️ O que NÃO será removido:</strong><br>
+            - As questões cadastradas (arquivo questoes.js)<br>
+            - Os professores autorizados
+        </div>
+
+        <div class="stats" id="stats" style="display: none;">
+            <h3>📊 Status atual:</h3>
+            <div id="statsContent"></div>
+        </div>
+
+        <button class="btn-warning" onclick="verificarDados()">
+            🔍 Verificar Dados no Banco
+        </button>
+
+        <button class="btn-danger" onclick="confirmarLimpeza()">
+            🗑️ LIMPAR TODOS OS DADOS
+        </button>
+
+        <button class="btn-success" onclick="limparApenasRespostas()">
+            📝 Limpar Apenas Respostas e Votos
+        </button>
+
+        <div id="status" class="status"></div>
+        <pre id="log"></pre>
+    </div>
+
+    <script>
+        async function verificarDados() {
+            const statusDiv = document.getElementById('status');
+            const statsDiv = document.getElementById('stats');
+            const statsContent = document.getElementById('statsContent');
+            
+            statusDiv.className = 'status loading show';
+            statusDiv.innerHTML = '<span class="spinner"></span> Verificando dados no Firebase...';
+            
+            try {
+                // Verificar alunos
+                const alunosSnap = await window.db.ref('alunos').once('value');
+                const alunos = alunosSnap.val() || {};
+                const totalAlunos = Object.keys(alunos).length;
+                const alunosOnline = Object.values(alunos).filter(a => a.online === true).length;
+                
+                // Verificar respostas
+                const respostasSnap = await window.db.ref('respostas').once('value');
+                const respostas = respostasSnap.val() || {};
+                let totalRespostas = 0;
+                for (const pergunta in respostas) {
+                    totalRespostas += Object.keys(respostas[pergunta]).length;
+                }
+                
+                // Verificar votos
+                const votosSnap = await window.db.ref('votos').once('value');
+                const votos = votosSnap.val() || {};
+                const totalVotosPerguntas = Object.keys(votos).length;
+                
+                // Verificar feedbacks
+                const feedbackSnap = await window.db.ref('feedback').once('value');
+                const feedbacks = feedbackSnap.val() || {};
+                const totalFeedbacks = Object.keys(feedbacks).length;
+                
+                // Verificar sessão
+                const sessaoSnap = await window.db.ref('sessao').once('value');
+                const sessao = sessaoSnap.val() || {};
+                
+                statsDiv.style.display = 'block';
+                statsContent.innerHTML = `
+                    <p>👨‍🎓 Alunos cadastrados: <strong>${totalAlunos}</strong> (${alunosOnline} online)</p>
+                    <p>📝 Total de respostas: <strong>${totalRespostas}</strong></p>
+                    <p>📊 Questões com votos: <strong>${totalVotosPerguntas}</strong></p>
+                    <p>💬 Feedbacks enviados: <strong>${totalFeedbacks}</strong></p>
+                    <p>🔄 Sessão ativa: <strong>${sessao.status ? (sessao.status.ativa ? 'Sim' : 'Não') : 'Não'}</strong></p>
+                `;
+                
+                statusDiv.className = 'status success show';
+                statusDiv.innerHTML = `✅ Verificação concluída! Total de ${totalAlunos} alunos e ${totalRespostas} respostas encontradas.`;
+                
+            } catch (error) {
+                statusDiv.className = 'status error show';
+                statusDiv.innerHTML = `❌ Erro ao verificar: ${error.message}`;
+            }
+        }
+
+        async function confirmarLimpeza() {
+            const confirmacao = confirm("⚠️ ATENÇÃO! Isso irá REMOVER TODOS OS DADOS permanentemente!\n\nTem certeza absoluta?");
+            if (!confirmacao) return;
+            
+            const segundaConfirmacao = confirm("ÚLTIMA CHANCE! Você está prestes a apagar TODOS os dados do sistema.\n\nDigite 'LIMPAR' no prompt para confirmar.");
+            if (!segundaConfirmacao) return;
+            
+            const codigo = prompt("Digite 'LIMPAR' para confirmar a limpeza total:");
+            if (codigo !== "LIMPAR") {
+                alert("Código incorreto. Operação cancelada.");
+                return;
+            }
+            
+            await limparBancoTotal();
+        }
+
+        async function limparBancoTotal() {
+            const statusDiv = document.getElementById('status');
+            const logPre = document.getElementById('log');
+            
+            statusDiv.className = 'status loading show';
+            statusDiv.innerHTML = '<span class="spinner"></span> Limpando banco de dados...';
+            logPre.style.display = 'block';
+            logPre.innerHTML = '';
+            
+            const logs = [];
+            
+            try {
+                // 1. Limpar alunos
+                logs.push('🗑️ Removendo alunos...');
+                await window.db.ref('alunos').remove();
+                logs.push('✅ Alunos removidos com sucesso!');
+                
+                // 2. Limpar respostas
+                logs.push('🗑️ Removendo respostas...');
+                await window.db.ref('respostas').remove();
+                logs.push('✅ Respostas removidas com sucesso!');
+                
+                // 3. Limpar votos
+                logs.push('🗑️ Removendo votos...');
+                await window.db.ref('votos').remove();
+                logs.push('✅ Votos removidos com sucesso!');
+                
+                // 4. Limpar feedbacks
+                logs.push('🗑️ Removendo feedbacks...');
+                await window.db.ref('feedback').remove();
+                logs.push('✅ Feedbacks removidos com sucesso!');
+                
+                // 5. Resetar sessão
+                logs.push('🔄 Resetando sessão...');
+                await window.db.ref('sessao').set({
+                    status: {
+                        ativa: true,
+                        ultimaAtivacao: Date.now()
+                    },
+                    perguntaAtiva: null
+                });
+                logs.push('✅ Sessão resetada com sucesso!');
+                
+                logPre.innerHTML = logs.map(l => `> ${l}`).join('\n');
+                
+                statusDiv.className = 'status success show';
+                statusDiv.innerHTML = '✅ LIMPEZA TOTAL CONCLUÍDA! Todos os dados foram removidos.';
+                
+                // Atualizar estatísticas
+                await verificarDados();
+                
+            } catch (error) {
+                logs.push(`❌ ERRO: ${error.message}`);
+                logPre.innerHTML = logs.map(l => `> ${l}`).join('\n');
+                statusDiv.className = 'status error show';
+                statusDiv.innerHTML = `❌ Erro durante limpeza: ${error.message}`;
+            }
+        }
+
+        async function limparApenasRespostas() {
+            const confirmacao = confirm("⚠️ Isso irá remover apenas RESPOSTAS, VOTOS e FEEDBACKS.\n\nOs alunos cadastrados serão mantidos.\n\nDeseja continuar?");
+            if (!confirmacao) return;
+            
+            const statusDiv = document.getElementById('status');
+            const logPre = document.getElementById('log');
+            
+            statusDiv.className = 'status loading show';
+            statusDiv.innerHTML = '<span class="spinner"></span> Limpando respostas...';
+            logPre.style.display = 'block';
+            logPre.innerHTML = '';
+            
+            const logs = [];
+            
+            try {
+                logs.push('🗑️ Removendo respostas...');
+                await window.db.ref('respostas').remove();
+                logs.push('✅ Respostas removidas!');
+                
+                logs.push('🗑️ Removendo votos...');
+                await window.db.ref('votos').remove();
+                logs.push('✅ Votos removidos!');
+                
+                logs.push('🗑️ Removendo feedbacks...');
+                await window.db.ref('feedback').remove();
+                logs.push('✅ Feedbacks removidos!');
+                
+                logs.push('🔄 Resetando questão ativa...');
+                await window.db.ref('sessao/perguntaAtiva').set(null);
+                logs.push('✅ Questão ativa resetada!');
+                
+                logPre.innerHTML = logs.map(l => `> ${l}`).join('\n');
+                
+                statusDiv.className = 'status success show';
+                statusDiv.innerHTML = '✅ Respostas, votos e feedbacks removidos com sucesso!';
+                
+                await verificarDados();
+                
+            } catch (error) {
+                logs.push(`❌ ERRO: ${error.message}`);
+                logPre.innerHTML = logs.map(l => `> ${l}`).join('\n');
+                statusDiv.className = 'status error show';
+                statusDiv.innerHTML = `❌ Erro: ${error.message}`;
+            }
+        }
+
+        // Expor funções globalmente
+        window.verificarDados = verificarDados;
+        window.confirmarLimpeza = confirmarLimpeza;
+        window.limparApenasRespostas = limparApenasRespostas;
+    </script>
+</body>
+</html>

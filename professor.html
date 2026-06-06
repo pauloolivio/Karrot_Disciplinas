@@ -47,28 +47,31 @@
         }
         .user-details h2 { font-size: 18px; color: #1f2937; margin-bottom: 4px; }
         .user-details p { font-size: 12px; color: #6b7280; }
-        .logout-btn {
-            background: #f3f4f6;
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .btn-header {
             padding: 10px 18px;
             border-radius: 12px;
             cursor: pointer;
-            color: #6b7280;
             font-size: 14px;
             font-weight: 500;
             border: none;
             transition: all 0.3s;
+            background: #f3f4f6;
+            color: #6b7280;
         }
-        .logout-btn:hover { background: #fee; color: #ef4444; transform: translateY(-2px); }
-        .desconectar-btn {
-            background: #ef4444;
-            color: white;
-        }
-        .desconectar-btn:hover { background: #dc2626; color: white; }
-        .export-btn {
-            background: #10b981;
-            color: white;
-        }
-        .export-btn:hover { background: #059669; color: white; }
+        .btn-header:hover { transform: translateY(-2px); }
+        .btn-export { background: #10b981; color: white; }
+        .btn-export:hover { background: #059669; }
+        .btn-clean { background: #f59e0b; color: white; }
+        .btn-clean:hover { background: #d97706; }
+        .btn-disconnect { background: #ef4444; color: white; }
+        .btn-disconnect:hover { background: #dc2626; }
+        .btn-logout { background: #f3f4f6; color: #6b7280; }
+        .btn-logout:hover { background: #fee; color: #ef4444; }
         
         /* Filtros */
         .filtro-container {
@@ -231,7 +234,7 @@
             font-size: 13px;
         }
         
-        /* Seção de Exportação e Análise */
+        /* Seção de Análise e Exportação */
         .analise-card {
             background: white;
             border-radius: 20px;
@@ -381,14 +384,17 @@
                     <p id="professorEmail">---</p>
                 </div>
             </div>
-            <div style="display: flex; gap: 10px;">
-                <button class="logout-btn export-btn" onclick="exportarDadosCompletos()">
+            <div class="btn-group">
+                <button class="btn-header btn-export" onclick="exportarDadosCompletos()">
                     <i class="fas fa-download"></i> Exportar JSON
                 </button>
-                <button class="logout-btn desconectar-btn" onclick="confirmarDesconectarTodos()">
+                <button class="btn-header btn-clean" onclick="limparDadosRapido()">
+                    <i class="fas fa-broom"></i> Limpar Dados
+                </button>
+                <button class="btn-header btn-disconnect" onclick="confirmarDesconectarTodos()">
                     <i class="fas fa-user-slash"></i> Desconectar Todos
                 </button>
-                <button class="logout-btn" onclick="confirmarLogout()">
+                <button class="btn-header btn-logout" onclick="confirmarLogout()">
                     <i class="fas fa-sign-out-alt"></i> Sair
                 </button>
             </div>
@@ -477,6 +483,8 @@
         let acertosErrosChart = null;
         let acertosDisciplinaChart = null;
 
+        // ============= FUNÇÕES DE INICIALIZAÇÃO =============
+        
         function carregarDisciplinas() {
             const select = document.getElementById('disciplinaSelect');
             const disciplinas = window.getTodasDisciplinas();
@@ -499,9 +507,9 @@
                     <div class="disciplina-badge">${q.disciplina}</div>
                     <h3>${q.texto}</h3>
                     <div class="alternativas-preview">
-                        ${Object.entries(q.alternativas).map(([letra, texto]) => `<span class="alt-preview">${letra}) ${texto}</span>`).join('')}
+                        ${Object.entries(q.alternativas).map(([letra, texto]) => `<span class="alt-preview">${letra}) ${texto.substring(0, 30)}${texto.length > 30 ? '...' : ''}</span>`).join('')}
                     </div>
-                    <div class="resposta-correta">✓ Resposta: ${q.correta}) ${q.alternativas[q.correta]}</div>
+                    <div class="resposta-correta">✓ Resposta: ${q.correta}) ${q.alternativas[q.correta].substring(0, 40)}${q.alternativas[q.correta].length > 40 ? '...' : ''}</div>
                 </div>
             `).join('');
             
@@ -572,6 +580,8 @@
             if (overlay) overlay.remove();
         }
 
+        // ============= FUNÇÕES DE DESCONEXÃO E LIMPEZA =============
+        
         async function confirmarDesconectarTodos() {
             if (confirm("⚠️ ATENÇÃO! Isso irá REMOVER PERMANENTEMENTE TODOS os alunos da sala.\n\nEles serão forçados a fazer login novamente.\n\nDeseja continuar?")) {
                 await desconectarTodosAlunos();
@@ -595,22 +605,9 @@
                 const alunos = snapshot.val() || {};
                 
                 let count = 0;
-                
                 for (const [id, aluno] of Object.entries(alunos)) {
                     await alunosRef.child(id).remove();
                     count++;
-                }
-                
-                const respostasRef = window.db.ref('respostas');
-                const respostasSnap = await respostasRef.once('value');
-                if (respostasSnap.exists()) {
-                    await respostasRef.remove();
-                }
-                
-                const votosRef = window.db.ref('votos');
-                const votosSnap = await votosRef.once('value');
-                if (votosSnap.exists()) {
-                    await votosRef.remove();
                 }
                 
                 showToast(`✅ ${count} aluno(s) removido(s) permanentemente!`);
@@ -626,6 +623,40 @@
             } catch (error) {
                 console.error("Erro ao desconectar alunos:", error);
                 showToast("❌ Erro ao desconectar alunos: " + error.message, "error");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function limparDadosRapido() {
+            if (!confirm("⚠️ Isso irá remover TODAS as respostas, votos e feedbacks.\n\nOs alunos continuarão logados, mas os dados de desempenho serão resetados.\n\nDeseja continuar?")) {
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                await window.db.ref('respostas').remove();
+                console.log("✅ Respostas removidas");
+                
+                await window.db.ref('votos').remove();
+                console.log("✅ Votos removidos");
+                
+                await window.db.ref('feedback').remove();
+                console.log("✅ Feedbacks removidos");
+                
+                await window.db.ref('sessao/perguntaAtiva').set(null);
+                console.log("✅ Questão ativa resetada");
+                
+                showToast("✅ Dados limpos com sucesso! Os gráficos agora devem funcionar.");
+                
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+                
+            } catch (error) {
+                console.error("Erro ao limpar dados:", error);
+                showToast("❌ Erro ao limpar dados: " + error.message, "error");
             } finally {
                 hideLoading();
             }
@@ -663,6 +694,8 @@
             }, 500);
         }
 
+        // ============= FUNÇÕES DE QUESTÕES =============
+        
         async function iniciarQuestao() {
             if (questoesSelecionadas.size === 0) {
                 showToast("Selecione uma questão primeiro!", "error");
@@ -717,7 +750,7 @@
                     }
                 }, 1000);
                 
-                showToast(`✅ Questão iniciada: ${questao.texto}`);
+                showToast(`✅ Questão iniciada: ${questao.texto.substring(0, 50)}...`);
                 
             } catch (error) {
                 console.error("Erro:", error);
@@ -762,7 +795,7 @@
                     <h4>Distribuição das respostas:</h4>
                     ${Object.entries(contagem).map(([letra, qtd]) => `
                         <div style="display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #eee;">
-                            <span><strong>Alternativa ${letra}</strong> - ${questao.alternativas[letra]}</span>
+                            <span><strong>Alternativa ${letra}</strong> - ${questao.alternativas[letra].substring(0, 50)}${questao.alternativas[letra].length > 50 ? '...' : ''}</span>
                             <span>${qtd} aluno${qtd !== 1 ? 's' : ''} (${total > 0 ? ((qtd/total)*100).toFixed(1) : 0}%)</span>
                             ${letra === questao.correta ? ' ✓' : ''}
                         </div>
@@ -813,7 +846,6 @@
             showLoading();
             
             try {
-                // Coletar todas as questões
                 const questoes = {};
                 const todasDisciplinas = window.getTodasDisciplinas();
                 for (const disciplina of todasDisciplinas) {
@@ -826,17 +858,14 @@
                     });
                 }
                 
-                // Coletar todas as respostas
                 const respostasRef = window.db.ref('respostas');
                 const respostasSnap = await respostasRef.once('value');
                 const respostas = respostasSnap.val() || {};
                 
-                // Coletar todos os alunos
                 const alunosRef = window.db.ref('alunos');
                 const alunosSnap = await alunosRef.once('value');
                 const alunos = alunosSnap.val() || {};
                 
-                // Processar desempenho por aluno
                 const desempenhoAlunos = [];
                 const acertosPorAluno = {};
                 const totalRespondidoPorAluno = {};
@@ -885,7 +914,6 @@
                     });
                 }
                 
-                // Coletar histórico de sessões/questões
                 const questoesRespondidas = [];
                 for (const [perguntaId, respostasPergunta] of Object.entries(respostas)) {
                     const questaoId = perguntaId.split('_')[0];
@@ -907,7 +935,6 @@
                     }
                 }
                 
-                // Estatísticas gerais
                 let totalRespostasGeral = 0;
                 let totalAcertosGeral = 0;
                 for (const aluno of desempenhoAlunos) {
@@ -950,7 +977,6 @@
             const dados = await coletarDadosCompletos();
             if (!dados) return;
             
-            // Criar arquivo JSON para download
             const jsonStr = JSON.stringify(dados, null, 2);
             const blob = new Blob([jsonStr], { type: 'application/json' });
             const url = URL.createObjectURL(blob);
@@ -970,11 +996,9 @@
             const dados = await coletarDadosCompletos();
             if (!dados) return;
             
-            // Mostrar containers
             document.getElementById('graficosContainer').style.display = 'grid';
             document.getElementById('tabelaAlunos').style.display = 'block';
             
-            // 1. Gráfico de Desempenho por Aluno
             const alunosOrdenados = dados.desempenhoPorAluno
                 .filter(a => a.total > 0)
                 .sort((a, b) => parseFloat(b.percentual) - parseFloat(a.percentual))
@@ -996,13 +1020,7 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            title: { display: true, text: 'Acertos (%)' }
-                        }
-                    },
+                    scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: 'Acertos (%)' } } },
                     plugins: {
                         tooltip: {
                             callbacks: {
@@ -1016,7 +1034,6 @@
                 }
             });
             
-            // 2. Gráfico de Acertos vs Erros
             const totalAcertos = dados.estatisticasGerais.totalAcertos;
             const totalErros = dados.estatisticasGerais.totalRespostas - totalAcertos;
             
@@ -1050,7 +1067,6 @@
                 }
             });
             
-            // 3. Gráfico de Acertos por Disciplina
             const acertosPorDisciplina = {};
             const totalPorDisciplina = {};
             
@@ -1087,17 +1103,10 @@
                 options: {
                     responsive: true,
                     maintainAspectRatio: true,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            max: 100,
-                            title: { display: true, text: 'Acertos (%)' }
-                        }
-                    }
+                    scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: 'Acertos (%)' } } }
                 }
             });
             
-            // 4. Tabela de alunos
             const tabelaHtml = `
                 <table>
                     <thead>
@@ -1162,6 +1171,7 @@
         window.confirmarLogout = confirmarLogout;
         window.exportarDadosCompletos = exportarDadosCompletos;
         window.analisarDesempenho = analisarDesempenho;
+        window.limparDadosRapido = limparDadosRapido;
         
         // Inicialização
         window.auth.onAuthStateChanged(async (user) => {
