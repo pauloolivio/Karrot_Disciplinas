@@ -9,6 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <script src="firebase-config.js"></script>
     <script src="questoes.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -19,6 +20,8 @@
             padding: 20px;
         }
         .app-container { width: 100%; max-width: 1400px; margin: 0 auto; }
+        
+        /* Header */
         .header {
             background: rgba(255,255,255,0.95);
             border-radius: 20px;
@@ -61,7 +64,13 @@
             color: white;
         }
         .desconectar-btn:hover { background: #dc2626; color: white; }
+        .export-btn {
+            background: #10b981;
+            color: white;
+        }
+        .export-btn:hover { background: #059669; color: white; }
         
+        /* Filtros */
         .filtro-container {
             background: white;
             border-radius: 20px;
@@ -90,8 +99,11 @@
             border-radius: 12px;
             cursor: pointer;
             font-size: 14px;
+            transition: all 0.3s;
         }
+        .selecionar-todos-btn:hover { transform: translateY(-2px); background: #5a67d8; }
         
+        /* Questões */
         .questoes-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
@@ -137,6 +149,7 @@
         .alt-preview { background: #f3f4f6; padding: 4px 10px; border-radius: 8px; font-size: 12px; }
         .resposta-correta { color: #10b981; font-size: 13px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb; }
         
+        /* Controles */
         .controles-card {
             background: white;
             border-radius: 20px;
@@ -188,6 +201,7 @@
         }
         .timer-text { text-align: center; margin-top: 10px; font-size: 14px; color: #6b7280; }
         
+        /* Resultado da Questão */
         .resultado-card {
             background: white;
             border-radius: 20px;
@@ -201,6 +215,7 @@
         .stat-box { background: #f3f4f6; padding: 15px; border-radius: 12px; text-align: center; }
         .stat-number { font-size: 32px; font-weight: bold; color: #667eea; }
         
+        /* Alunos Online */
         .alunos-card {
             background: white;
             border-radius: 20px;
@@ -215,6 +230,84 @@
             border-radius: 20px;
             font-size: 13px;
         }
+        
+        /* Seção de Exportação e Análise */
+        .analise-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-top: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .analise-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .analise-header h3 {
+            font-size: 20px;
+            color: #1f2937;
+        }
+        .btn-analise {
+            background: #8b5cf6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .btn-analise:hover { transform: translateY(-2px); background: #7c3aed; }
+        
+        .graficos-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+        .grafico-box {
+            background: #f9fafb;
+            border-radius: 16px;
+            padding: 20px;
+        }
+        .grafico-box h4 {
+            margin-bottom: 15px;
+            color: #374151;
+            font-size: 16px;
+        }
+        canvas { max-height: 300px; width: 100%; }
+        
+        .tabela-alunos {
+            margin-top: 25px;
+            overflow-x: auto;
+        }
+        .tabela-alunos table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .tabela-alunos th, .tabela-alunos td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .tabela-alunos th {
+            background: #f3f4f6;
+            font-weight: 600;
+            color: #374151;
+        }
+        .tabela-alunos tr:hover {
+            background: #f9fafb;
+        }
+        .acerto { color: #10b981; font-weight: 600; }
+        .erro { color: #ef4444; font-weight: 600; }
+        
         .toast {
             position: fixed;
             bottom: 20px;
@@ -225,12 +318,56 @@
             padding: 12px 24px;
             border-radius: 12px;
             z-index: 1000;
-            animation: fadeOut 2s ease;
+            animation: fadeOut 3s ease;
         }
+        .toast.error { background: #ef4444; }
+        .toast.warning { background: #f59e0b; }
         @keyframes fadeOut {
             0% { opacity: 1; }
             70% { opacity: 1; }
             100% { opacity: 0; }
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .badge-sucesso {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .badge-erro {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -245,10 +382,13 @@
                 </div>
             </div>
             <div style="display: flex; gap: 10px;">
-                <button class="logout-btn desconectar-btn" onclick="desconectarTodosAlunos()">
+                <button class="logout-btn export-btn" onclick="exportarDadosCompletos()">
+                    <i class="fas fa-download"></i> Exportar JSON
+                </button>
+                <button class="logout-btn desconectar-btn" onclick="confirmarDesconectarTodos()">
                     <i class="fas fa-user-slash"></i> Desconectar Todos
                 </button>
-                <button class="logout-btn" onclick="logout()">
+                <button class="logout-btn" onclick="confirmarLogout()">
                     <i class="fas fa-sign-out-alt"></i> Sair
                 </button>
             </div>
@@ -289,6 +429,41 @@
             <h3><i class="fas fa-users"></i> Alunos Online <span id="alunosCount">(0)</span></h3>
             <div class="alunos-list" id="alunosList"></div>
         </div>
+
+        <!-- Seção de Análise e Exportação -->
+        <div class="analise-card" id="analiseCard">
+            <div class="analise-header">
+                <h3><i class="fas fa-chart-pie"></i> Análise de Desempenho dos Alunos</h3>
+                <div>
+                    <button class="btn-analise" onclick="analisarDesempenho()" style="margin-right: 10px;">
+                        <i class="fas fa-chart-line"></i> Analisar Agora
+                    </button>
+                    <button class="btn-analise" onclick="exportarDadosCompletos()" style="background: #10b981;">
+                        <i class="fas fa-database"></i> Exportar Dados Completos
+                    </button>
+                </div>
+            </div>
+            
+            <div class="graficos-container" id="graficosContainer" style="display: none;">
+                <div class="grafico-box">
+                    <h4><i class="fas fa-chart-bar"></i> Desempenho por Aluno</h4>
+                    <canvas id="desempenhoAlunosChart"></canvas>
+                </div>
+                <div class="grafico-box">
+                    <h4><i class="fas fa-chart-pie"></i> Acertos vs Erros (Total)</h4>
+                    <canvas id="acertosErrosChart"></canvas>
+                </div>
+                <div class="grafico-box">
+                    <h4><i class="fas fa-chart-line"></i> Acertos por Disciplina</h4>
+                    <canvas id="acertosDisciplinaChart"></canvas>
+                </div>
+            </div>
+            
+            <div class="tabela-alunos" id="tabelaAlunos" style="display: none;">
+                <h4><i class="fas fa-table"></i> Detalhamento por Aluno</h4>
+                <div id="tabelaContent"></div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -296,6 +471,11 @@
         let questaoAtiva = null;
         let timerInterval = null;
         let perguntaIdAtual = null;
+        
+        // Gráficos
+        let desempenhoAlunosChart = null;
+        let acertosErrosChart = null;
+        let acertosDisciplinaChart = null;
 
         function carregarDisciplinas() {
             const select = document.getElementById('disciplinaSelect');
@@ -334,7 +514,7 @@
 
         function toggleQuestao(id) {
             if (questaoAtiva) {
-                showToast("Aguardando questão atual terminar!");
+                showToast("Aguardando questão atual terminar!", "warning");
                 return;
             }
             
@@ -368,19 +548,38 @@
                 if (aluno.online === true) {
                     const ultimaAtividade = aluno.ultimaAtividade || 0;
                     if (agora - ultimaAtividade > limiteInatividade) {
-                        await alunosRef.child(id).update({ online: false, motivo: "inatividade", desconectadoEm: Date.now() });
+                        await alunosRef.child(id).remove();
                         count++;
                     }
                 }
             }
             
             if (count > 0) {
-                console.log(`🧹 Limpos ${count} alunos inativos`);
+                console.log(`🧹 Removidos ${count} alunos inativos`);
+            }
+        }
+
+        function showLoading() {
+            const overlay = document.createElement('div');
+            overlay.id = 'loadingOverlay';
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = '<div class="spinner"></div>';
+            document.body.appendChild(overlay);
+        }
+
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.remove();
+        }
+
+        async function confirmarDesconectarTodos() {
+            if (confirm("⚠️ ATENÇÃO! Isso irá REMOVER PERMANENTEMENTE TODOS os alunos da sala.\n\nEles serão forçados a fazer login novamente.\n\nDeseja continuar?")) {
+                await desconectarTodosAlunos();
             }
         }
 
         async function desconectarTodosAlunos() {
-            if (!confirm("⚠️ Tem certeza? Isso irá desconectar TODOS os alunos da sala.")) return;
+            showLoading();
             
             try {
                 await window.db.ref('sessao/status').set({
@@ -389,43 +588,84 @@
                     encerradaEm: Date.now()
                 });
                 
+                await window.db.ref('sessao/perguntaAtiva').set(null);
+                
                 const alunosRef = window.db.ref('alunos');
                 const snapshot = await alunosRef.once('value');
                 const alunos = snapshot.val() || {};
                 
                 let count = 0;
+                
                 for (const [id, aluno] of Object.entries(alunos)) {
-                    if (aluno.online === true) {
-                        await alunosRef.child(id).update({ 
-                            online: false, 
-                            desconectadoPor: "professor", 
-                            desconectadoEm: Date.now(),
-                            sessaoEncerrada: true
-                        });
-                        count++;
-                    }
+                    await alunosRef.child(id).remove();
+                    count++;
                 }
                 
-                await window.db.ref('sessao/perguntaAtiva').set(null);
+                const respostasRef = window.db.ref('respostas');
+                const respostasSnap = await respostasRef.once('value');
+                if (respostasSnap.exists()) {
+                    await respostasRef.remove();
+                }
                 
-                showToast(`✅ ${count} aluno(s) desconectado(s)!`);
+                const votosRef = window.db.ref('votos');
+                const votosSnap = await votosRef.once('value');
+                if (votosSnap.exists()) {
+                    await votosRef.remove();
+                }
                 
-                setTimeout(() => {
-                    window.db.ref('sessao/status').set({
+                showToast(`✅ ${count} aluno(s) removido(s) permanentemente!`);
+                
+                setTimeout(async () => {
+                    await window.db.ref('sessao/status').set({
                         ativa: true,
                         ultimaAtivacao: Date.now()
                     });
+                    console.log("🟢 Sessão reativada para novos alunos");
                 }, 3000);
                 
             } catch (error) {
                 console.error("Erro ao desconectar alunos:", error);
-                showToast("❌ Erro ao desconectar alunos");
+                showToast("❌ Erro ao desconectar alunos: " + error.message, "error");
+            } finally {
+                hideLoading();
             }
+        }
+
+        async function confirmarLogout() {
+            if (confirm("⚠️ Tem certeza que deseja sair? Você será desconectado do sistema.")) {
+                await logout();
+            }
+        }
+
+        async function logout() {
+            showLoading();
+            
+            if (timerInterval) clearInterval(timerInterval);
+            
+            try {
+                await window.db.ref('sessao/perguntaAtiva').set(null);
+                await window.db.ref('sessao/status').set({
+                    ativa: false,
+                    encerradaPor: "professor_logout",
+                    encerradaEm: Date.now()
+                });
+                
+                await window.auth.signOut();
+            } catch (error) {
+                console.error("Erro no logout:", error);
+            }
+            
+            sessionStorage.clear();
+            
+            setTimeout(() => {
+                hideLoading();
+                window.location.href = "index.html";
+            }, 500);
         }
 
         async function iniciarQuestao() {
             if (questoesSelecionadas.size === 0) {
-                alert("Selecione uma questão!");
+                showToast("Selecione uma questão primeiro!", "error");
                 return;
             }
             
@@ -449,6 +689,7 @@
                     alternativas: questao.alternativas,
                     correta: questao.correta,
                     explicacao: questao.explicacao,
+                    disciplina: questao.disciplina,
                     ativa: true,
                     inicioEm: Date.now(),
                     tempoLimite: tempo
@@ -480,7 +721,7 @@
                 
             } catch (error) {
                 console.error("Erro:", error);
-                alert("Erro ao iniciar questão: " + error.message);
+                showToast("Erro ao iniciar questão: " + error.message, "error");
             }
         }
         
@@ -499,7 +740,6 @@
             const acertos = contagem[questao.correta];
             const percentual = total > 0 ? ((acertos / total) * 100).toFixed(1) : 0;
             
-            // ENVIO AUTOMÁTICO DE FEEDBACK - sem necessidade de digitar nada
             await window.db.ref(`feedback/${perguntaId}`).set({
                 texto: "✅ " + questao.explicacao,
                 status: "enviado",
@@ -531,10 +771,6 @@
                 <div style="margin-top: 20px; padding: 15px; background: #e0f2fe; border-radius: 12px;">
                     <strong>Resposta Correta: ${questao.correta}) ${questao.alternativas[questao.correta]}</strong><br>
                     <small>${questao.explicacao}</small>
-                </div>
-                <div style="margin-top: 20px; padding: 15px; background: #d1fae5; border-radius: 12px;">
-                    <i class="fas fa-check-circle" style="color: #10b981;"></i>
-                    <strong>Feedback automático enviado aos alunos!</strong>
                 </div>
             `;
             
@@ -570,13 +806,340 @@
                 }
             });
         }
+
+        // ============= FUNÇÕES DE ANÁLISE E EXPORTAÇÃO =============
         
-        function showToast(msg) {
+        async function coletarDadosCompletos() {
+            showLoading();
+            
+            try {
+                // Coletar todas as questões
+                const questoes = {};
+                const todasDisciplinas = window.getTodasDisciplinas();
+                for (const disciplina of todasDisciplinas) {
+                    const questoesDisciplina = window.getQuestoesPorDisciplina(disciplina);
+                    questoesDisciplina.forEach(q => {
+                        questoes[q.id] = {
+                            ...q,
+                            disciplina: disciplina
+                        };
+                    });
+                }
+                
+                // Coletar todas as respostas
+                const respostasRef = window.db.ref('respostas');
+                const respostasSnap = await respostasRef.once('value');
+                const respostas = respostasSnap.val() || {};
+                
+                // Coletar todos os alunos
+                const alunosRef = window.db.ref('alunos');
+                const alunosSnap = await alunosRef.once('value');
+                const alunos = alunosSnap.val() || {};
+                
+                // Processar desempenho por aluno
+                const desempenhoAlunos = [];
+                const acertosPorAluno = {};
+                const totalRespondidoPorAluno = {};
+                
+                for (const [alunoId, alunoData] of Object.entries(alunos)) {
+                    const respostasAluno = [];
+                    let acertos = 0;
+                    let total = 0;
+                    
+                    for (const [perguntaId, respostasPergunta] of Object.entries(respostas)) {
+                        if (respostasPergunta[alunoId]) {
+                            const resposta = respostasPergunta[alunoId];
+                            const questaoId = perguntaId.split('_')[0];
+                            const questao = questoes[parseInt(questaoId)];
+                            
+                            if (questao) {
+                                const isCorreta = resposta.letra === questao.correta;
+                                if (isCorreta) acertos++;
+                                total++;
+                                
+                                respostasAluno.push({
+                                    perguntaId: perguntaId,
+                                    questaoId: questaoId,
+                                    questaoTexto: questao.texto,
+                                    disciplina: questao.disciplina,
+                                    resposta: resposta.letra,
+                                    correta: questao.correta,
+                                    isCorreta: isCorreta,
+                                    timestamp: resposta.timestamp
+                                });
+                            }
+                        }
+                    }
+                    
+                    acertosPorAluno[alunoId] = acertos;
+                    totalRespondidoPorAluno[alunoId] = total;
+                    
+                    desempenhoAlunos.push({
+                        id: alunoId,
+                        nome: alunoData.nome,
+                        ra: alunoData.ra,
+                        acertos: acertos,
+                        total: total,
+                        percentual: total > 0 ? ((acertos / total) * 100).toFixed(1) : 0,
+                        respostas: respostasAluno
+                    });
+                }
+                
+                // Coletar histórico de sessões/questões
+                const questoesRespondidas = [];
+                for (const [perguntaId, respostasPergunta] of Object.entries(respostas)) {
+                    const questaoId = perguntaId.split('_')[0];
+                    const questao = questoes[parseInt(questaoId)];
+                    if (questao) {
+                        const totalRespostas = Object.keys(respostasPergunta).length;
+                        const acertosQuestao = Object.values(respostasPergunta).filter(r => r.letra === questao.correta).length;
+                        
+                        questoesRespondidas.push({
+                            perguntaId: perguntaId,
+                            questaoId: questaoId,
+                            questaoTexto: questao.texto,
+                            disciplina: questao.disciplina,
+                            totalRespostas: totalRespostas,
+                            acertos: acertosQuestao,
+                            percentualAcertos: totalRespostas > 0 ? ((acertosQuestao / totalRespostas) * 100).toFixed(1) : 0,
+                            respostas: respostasPergunta
+                        });
+                    }
+                }
+                
+                // Estatísticas gerais
+                let totalRespostasGeral = 0;
+                let totalAcertosGeral = 0;
+                for (const aluno of desempenhoAlunos) {
+                    totalRespostasGeral += aluno.total;
+                    totalAcertosGeral += aluno.acertos;
+                }
+                
+                const dadosCompletos = {
+                    dataExportacao: new Date().toISOString(),
+                    estatisticasGerais: {
+                        totalAlunos: Object.keys(alunos).length,
+                        totalQuestoesRespondidas: questoesRespondidas.length,
+                        totalRespostas: totalRespostasGeral,
+                        totalAcertos: totalAcertosGeral,
+                        mediaAcertosGeral: totalRespostasGeral > 0 ? ((totalAcertosGeral / totalRespostasGeral) * 100).toFixed(1) : 0
+                    },
+                    desempenhoPorAluno: desempenhoAlunos,
+                    desempenhoPorQuestao: questoesRespondidas,
+                    questoesCadastradas: Object.values(questoes),
+                    alunosCadastrados: Object.values(alunos).map(a => ({
+                        nome: a.nome,
+                        ra: a.ra,
+                        online: a.online,
+                        entrouEm: a.entrouEm
+                    }))
+                };
+                
+                return dadosCompletos;
+                
+            } catch (error) {
+                console.error("Erro ao coletar dados:", error);
+                showToast("Erro ao coletar dados: " + error.message, "error");
+                return null;
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        async function exportarDadosCompletos() {
+            const dados = await coletarDadosCompletos();
+            if (!dados) return;
+            
+            // Criar arquivo JSON para download
+            const jsonStr = JSON.stringify(dados, null, 2);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `karoot_dados_${new Date().toISOString().slice(0,19)}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            showToast(`📊 Dados exportados com sucesso! ${dados.estatisticasGerais.totalAlunos} alunos, ${dados.estatisticasGerais.totalQuestoesRespondidas} questões respondidas.`);
+        }
+        
+        async function analisarDesempenho() {
+            const dados = await coletarDadosCompletos();
+            if (!dados) return;
+            
+            // Mostrar containers
+            document.getElementById('graficosContainer').style.display = 'grid';
+            document.getElementById('tabelaAlunos').style.display = 'block';
+            
+            // 1. Gráfico de Desempenho por Aluno
+            const alunosOrdenados = dados.desempenhoPorAluno
+                .filter(a => a.total > 0)
+                .sort((a, b) => parseFloat(b.percentual) - parseFloat(a.percentual))
+                .slice(0, 10);
+            
+            if (desempenhoAlunosChart) desempenhoAlunosChart.destroy();
+            const ctx1 = document.getElementById('desempenhoAlunosChart').getContext('2d');
+            desempenhoAlunosChart = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: alunosOrdenados.map(a => a.nome.split(' ')[0]),
+                    datasets: [{
+                        label: 'Percentual de Acertos (%)',
+                        data: alunosOrdenados.map(a => parseFloat(a.percentual)),
+                        backgroundColor: '#667eea',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: { display: true, text: 'Acertos (%)' }
+                        }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const aluno = alunosOrdenados[context.dataIndex];
+                                    return [`Acertos: ${aluno.percentual}%`, `${aluno.acertos}/${aluno.total} questões`];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 2. Gráfico de Acertos vs Erros
+            const totalAcertos = dados.estatisticasGerais.totalAcertos;
+            const totalErros = dados.estatisticasGerais.totalRespostas - totalAcertos;
+            
+            if (acertosErrosChart) acertosErrosChart.destroy();
+            const ctx2 = document.getElementById('acertosErrosChart').getContext('2d');
+            acertosErrosChart = new Chart(ctx2, {
+                type: 'pie',
+                data: {
+                    labels: ['✅ Acertos', '❌ Erros'],
+                    datasets: [{
+                        data: [totalAcertos, totalErros],
+                        backgroundColor: ['#10b981', '#ef4444'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => {
+                                    const total = totalAcertos + totalErros;
+                                    const percentual = ((context.raw / total) * 100).toFixed(1);
+                                    return `${context.label}: ${context.raw} (${percentual}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 3. Gráfico de Acertos por Disciplina
+            const acertosPorDisciplina = {};
+            const totalPorDisciplina = {};
+            
+            for (const aluno of dados.desempenhoPorAluno) {
+                for (const resposta of aluno.respostas) {
+                    const disciplina = resposta.disciplina;
+                    if (!acertosPorDisciplina[disciplina]) {
+                        acertosPorDisciplina[disciplina] = 0;
+                        totalPorDisciplina[disciplina] = 0;
+                    }
+                    totalPorDisciplina[disciplina]++;
+                    if (resposta.isCorreta) acertosPorDisciplina[disciplina]++;
+                }
+            }
+            
+            const disciplinas = Object.keys(acertosPorDisciplina);
+            const percentuaisDisciplina = disciplinas.map(d => 
+                totalPorDisciplina[d] > 0 ? ((acertosPorDisciplina[d] / totalPorDisciplina[d]) * 100).toFixed(1) : 0
+            );
+            
+            if (acertosDisciplinaChart) acertosDisciplinaChart.destroy();
+            const ctx3 = document.getElementById('acertosDisciplinaChart').getContext('2d');
+            acertosDisciplinaChart = new Chart(ctx3, {
+                type: 'bar',
+                data: {
+                    labels: disciplinas,
+                    datasets: [{
+                        label: 'Percentual de Acertos por Disciplina (%)',
+                        data: percentuaisDisciplina,
+                        backgroundColor: '#f59e0b',
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 100,
+                            title: { display: true, text: 'Acertos (%)' }
+                        }
+                    }
+                }
+            });
+            
+            // 4. Tabela de alunos
+            const tabelaHtml = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>RA</th>
+                            <th>Questões Respondidas</th>
+                            <th>Acertos</th>
+                            <th>Percentual</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${dados.desempenhoPorAluno.map(aluno => `
+                            <tr>
+                                <td>${aluno.nome}</td>
+                                <td>${aluno.ra}</td>
+                                <td>${aluno.total}</td>
+                                <td>${aluno.acertos}</td>
+                                <td class="${parseFloat(aluno.percentual) >= 70 ? 'acerto' : 'erro'}">${aluno.percentual}%</td>
+                                <td>${aluno.total > 0 ? 
+                                    (parseFloat(aluno.percentual) >= 70 ? 
+                                        '<span class="badge-sucesso">✅ Bom desempenho</span>' : 
+                                        '<span class="badge-erro">⚠️ Precisa melhorar</span>') : 
+                                    '<span class="badge-erro">❌ Sem respostas</span>'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            document.getElementById('tabelaContent').innerHTML = tabelaHtml;
+            
+            showToast(`📊 Análise concluída! ${dados.desempenhoPorAluno.filter(a => a.total > 0).length} alunos ativos.`);
+        }
+        
+        function showToast(msg, type = "success") {
             const toast = document.createElement('div');
-            toast.className = 'toast';
+            toast.className = `toast ${type === "error" ? "error" : (type === "warning" ? "warning" : "")}`;
             toast.textContent = msg;
             document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 2000);
+            setTimeout(() => toast.remove(), 3000);
         }
         
         function loadProfessorData() {
@@ -587,14 +1150,6 @@
             }
         }
         
-        async function logout() {
-            if (timerInterval) clearInterval(timerInterval);
-            await window.db.ref('sessao/perguntaAtiva').set(null);
-            await window.auth.signOut();
-            sessionStorage.clear();
-            window.location.href = "index.html";
-        }
-        
         // Expor funções globais
         window.toggleQuestao = toggleQuestao;
         window.filtrarQuestoes = filtrarQuestoes;
@@ -602,7 +1157,11 @@
         window.iniciarQuestao = iniciarQuestao;
         window.fecharResultado = fecharResultado;
         window.desconectarTodosAlunos = desconectarTodosAlunos;
+        window.confirmarDesconectarTodos = confirmarDesconectarTodos;
         window.logout = logout;
+        window.confirmarLogout = confirmarLogout;
+        window.exportarDadosCompletos = exportarDadosCompletos;
+        window.analisarDesempenho = analisarDesempenho;
         
         // Inicialização
         window.auth.onAuthStateChanged(async (user) => {

@@ -54,6 +54,14 @@
             border-radius: 12px;
             cursor: pointer;
             border: none;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .logout-btn:hover {
+            background: #ef4444;
+            color: white;
+            transform: translateY(-2px);
         }
         
         .waiting-container {
@@ -131,7 +139,10 @@
             border-radius: 20px;
             padding: 20px;
             margin-top: 20px;
+            display: none;
         }
+        .grafico-container.visible { display: block; }
+        
         canvas { max-height: 250px; }
         
         .finished-container, .answered-container {
@@ -156,7 +167,6 @@
             100% { opacity: 1; transform: scale(1); }
         }
         
-        /* Modal de Feedback */
         .feedback-modal {
             position: fixed;
             top: 0;
@@ -238,6 +248,31 @@
             70% { opacity: 1; }
             100% { opacity: 0; }
         }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -252,7 +287,9 @@
             </div>
             <div style="display: flex; gap: 10px;">
                 <div class="status-badge"><i class="fas fa-circle"></i> Online</div>
-                <button class="logout-btn" onclick="logout()">Sair</button>
+                <button class="logout-btn" onclick="confirmarLogout()">
+                    <i class="fas fa-sign-out-alt"></i> Sair
+                </button>
             </div>
         </div>
 
@@ -272,7 +309,7 @@
             </div>
             <div class="question-text" id="questionText"></div>
             <div class="alternativas-grid" id="alternativasGrid"></div>
-            <div class="grafico-container">
+            <div class="grafico-container" id="graficoContainer">
                 <div style="text-align: center; margin-bottom: 10px;"><i class="fas fa-chart-bar"></i> Respostas da Turma</div>
                 <canvas id="votosChart"></canvas>
             </div>
@@ -306,6 +343,8 @@
         let heartbeatInterval = null;
         let isClosing = false;
         let feedbackListener = null;
+        let aguardandoResposta = false;
+        let questoesRespondidas = new Set(); // Guarda IDs das questões que o aluno já respondeu
 
         function loadAlunoData() {
             const nome = sessionStorage.getItem('alunoNome');
@@ -313,6 +352,26 @@
             if (nome && ra) {
                 document.getElementById('alunoNome').innerHTML = `<i class="fas fa-user"></i> ${nome}`;
                 document.getElementById('alunoRA').innerText = ra;
+            }
+        }
+
+        async function carregarQuestoesRespondidas() {
+            const userId = sessionStorage.getItem('userId');
+            if (!userId) return;
+            
+            try {
+                const respostasRef = window.db.ref('respostas');
+                const snapshot = await respostasRef.once('value');
+                const todasRespostas = snapshot.val() || {};
+                
+                for (const [perguntaId, respostas] of Object.entries(todasRespostas)) {
+                    if (respostas[userId]) {
+                        questoesRespondidas.add(perguntaId);
+                    }
+                }
+                console.log(`📚 Aluno já respondeu ${questoesRespondidas.size} questões`);
+            } catch (error) {
+                console.error("Erro ao carregar questões respondidas:", error);
             }
         }
 
@@ -334,10 +393,25 @@
             };
             
             await updateHeartbeat();
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
             heartbeatInterval = setInterval(updateHeartbeat, 15000);
         }
 
+        function hideChart() {
+            const graficoContainer = document.getElementById('graficoContainer');
+            graficoContainer.classList.remove('visible');
+        }
+        
+        function showChart() {
+            const graficoContainer = document.getElementById('graficoContainer');
+            graficoContainer.classList.add('visible');
+        }
+
         function updateChart(votos) {
+            if (!hasAnswered && !aguardandoResposta) {
+                return;
+            }
+            
             const ctx = document.getElementById('votosChart').getContext('2d');
             if (votosChart) votosChart.destroy();
             
@@ -385,6 +459,9 @@
             if (!userId || !currentQuestionId) return;
             
             hasAnswered = true;
+            aguardandoResposta = false;
+            
+            showChart();
             
             try {
                 document.querySelectorAll('.alternativa-btn').forEach(btn => btn.classList.add('disabled'));
@@ -401,6 +478,9 @@
                     ra: sessionStorage.getItem('alunoRA')
                 });
                 
+                // Marcar que respondeu esta questão
+                questoesRespondidas.add(currentQuestionId);
+                
                 await window.db.ref(`votos/${currentQuestionId}/${letra}`).transaction(current => (current || 0) + 1);
                 
                 showToast(`✅ Você respondeu ${letra}!`);
@@ -416,6 +496,7 @@
                 hasAnswered = false;
                 document.querySelectorAll('.alternativa-btn').forEach(btn => btn.classList.remove('disabled'));
                 if (btns[index]) btns[index].classList.remove('selected');
+                hideChart();
             }
         }
 
@@ -440,6 +521,7 @@
                         showToast("⏰ Tempo esgotou!", "warning");
                         document.getElementById('questionContainer').classList.remove('active');
                         document.getElementById('finishedContainer').style.display = 'block';
+                        hideChart();
                     }
                 }
                 timeLeft--;
@@ -456,6 +538,8 @@
             document.getElementById('answeredContainer').style.display = 'none';
             document.getElementById('disconnectedContainer').style.display = 'none';
             
+            hideChart();
+            
             if (timerInterval) clearInterval(timerInterval);
             if (votosListener) {
                 votosListener.off();
@@ -463,9 +547,41 @@
             }
             
             hasAnswered = false;
+            aguardandoResposta = false;
         }
 
+        // FUNÇÃO CORRIGIDA: Feedback só aparece se o aluno respondeu a questão
         function mostrarFeedback(feedback, feedbackId) {
+            const userId = sessionStorage.getItem('userId');
+            const questaoId = feedback.questaoId;
+            
+            // Buscar a perguntaId correta baseada na questão
+            // O feedback pode ser para uma pergunta específica
+            let perguntaIdRelacionada = null;
+            
+            // Verificar se o aluno respondeu a esta questão específica
+            // O feedbackId geralmente é o perguntaId
+            if (questoesRespondidas.has(feedbackId)) {
+                perguntaIdRelacionada = feedbackId;
+            }
+            
+            // Se não encontrar pelo feedbackId, procurar em todas as respostas
+            if (!perguntaIdRelacionada) {
+                for (const perguntaId of questoesRespondidas) {
+                    if (perguntaId.includes(String(questaoId))) {
+                        perguntaIdRelacionada = perguntaId;
+                        break;
+                    }
+                }
+            }
+            
+            // Só mostra o feedback se o aluno respondeu a esta questão
+            if (!perguntaIdRelacionada) {
+                console.log("Feedback ignorado - aluno não respondeu esta questão:", feedbackId);
+                return;
+            }
+            
+            // Verificar se já viu este feedback
             if (sessionStorage.getItem(`feedback_visto_${feedbackId}`)) {
                 return;
             }
@@ -475,15 +591,11 @@
             const modal = document.createElement('div');
             modal.className = 'feedback-modal';
             
-            const alternativasHtml = Object.entries(feedback.alternativas || {})
-                .map(([letra, texto]) => `<div style="padding: 5px 0;"><strong>${letra})</strong> ${texto}</div>`)
-                .join('');
-            
             modal.innerHTML = `
                 <div class="feedback-modal-content">
                     <div class="feedback-header">
                         <i class="fas fa-check-circle"></i>
-                        <h2 style="margin-top: 10px;">📚 Resposta Correta!</h2>
+                        <h2 style="margin-top: 10px;">📚 Resultado da Questão</h2>
                     </div>
                     
                     <div class="feedback-explicacao">
@@ -517,6 +629,7 @@
             } catch(e) {}
         }
 
+        // FUNÇÃO CORRIGIDA: Listener de feedback só para questões que o aluno respondeu
         function listenToFeedback() {
             if (feedbackListener) {
                 feedbackListener.off();
@@ -528,8 +641,12 @@
                 const feedback = snapshot.val();
                 const feedbackId = snapshot.key;
                 
+                // Verificar se o feedback é válido e se o aluno deve recebê-lo
                 if (feedback && feedback.status === "enviado") {
-                    mostrarFeedback(feedback, feedbackId);
+                    // Pequeno delay para garantir que o aluno já registrou a resposta
+                    setTimeout(() => {
+                        mostrarFeedback(feedback, feedbackId);
+                    }, 500);
                 }
             });
             
@@ -538,7 +655,9 @@
                 const feedbackId = snapshot.key;
                 
                 if (feedback && feedback.status === "enviado") {
-                    mostrarFeedback(feedback, feedbackId);
+                    setTimeout(() => {
+                        mostrarFeedback(feedback, feedbackId);
+                    }, 500);
                 }
             });
         }
@@ -596,11 +715,17 @@
                         resetUI();
                         currentQuestionId = pergunta.id;
                         hasAnswered = false;
+                        aguardandoResposta = true;
+                        
+                        hideChart();
                         
                         if (userId) {
                             const resposta = await window.db.ref(`respostas/${pergunta.id}/${userId}`).once('value');
                             if (resposta.exists()) {
                                 hasAnswered = true;
+                                aguardandoResposta = false;
+                                questoesRespondidas.add(pergunta.id);
+                                showChart();
                                 document.getElementById('answeredContainer').style.display = 'block';
                                 return;
                             }
@@ -616,8 +741,10 @@
                         if (votosListener) votosListener.off();
                         votosListener = window.db.ref(`votos/${pergunta.id}`);
                         votosListener.on('value', (votosSnap) => {
-                            const votos = votosSnap.val() || { A: 0, B: 0, C: 0, D: 0 };
-                            updateChart(votos);
+                            if (hasAnswered || !aguardandoResposta) {
+                                const votos = votosSnap.val() || { A: 0, B: 0, C: 0, D: 0 };
+                                updateChart(votos);
+                            }
                         });
                     }
                 } 
@@ -637,6 +764,8 @@
                             document.getElementById('finishedContainer').style.display = 'none';
                             document.getElementById('waitingContainer').style.display = 'block';
                             currentQuestionId = null;
+                            aguardandoResposta = false;
+                            hideChart();
                         }
                     }, 4000);
                 }
@@ -651,39 +780,68 @@
             setTimeout(() => toast.remove(), 2500);
         }
 
-        async function logout() {
-            isClosing = true;
-            const userId = sessionStorage.getItem('userId');
-            if (userId && window.db) {
-                await window.db.ref(`alunos/${userId}`).update({ 
-                    online: false, 
-                    desconectadoEm: Date.now(),
-                    motivo: "logout_manual"
-                });
+        function showLoading() {
+            const overlay = document.createElement('div');
+            overlay.id = 'loadingOverlay';
+            overlay.className = 'loading-overlay';
+            overlay.innerHTML = '<div class="spinner"></div>';
+            document.body.appendChild(overlay);
+        }
+
+        function hideLoading() {
+            const overlay = document.getElementById('loadingOverlay');
+            if (overlay) overlay.remove();
+        }
+
+        async function confirmarLogout() {
+            if (confirm("⚠️ Tem certeza que deseja sair? Você será desconectado da sala.")) {
+                await logout();
             }
+        }
+
+        async function logout() {
+            showLoading();
+            isClosing = true;
+            
+            const userId = sessionStorage.getItem('userId');
+            
+            try {
+                if (userId && window.db) {
+                    await window.db.ref(`alunos/${userId}`).remove();
+                    console.log("✅ Aluno removido permanentemente do Firebase");
+                }
+            } catch (error) {
+                console.error("Erro ao limpar dados do aluno:", error);
+            }
+            
             if (heartbeatInterval) clearInterval(heartbeatInterval);
             if (timerInterval) clearInterval(timerInterval);
-            if (votosListener) votosListener.off();
-            if (feedbackListener) feedbackListener.off();
-            await window.auth.signOut();
+            if (votosListener && votosListener.off) votosListener.off();
+            if (feedbackListener && feedbackListener.off) feedbackListener.off();
+            
+            try {
+                await window.auth.signOut();
+                console.log("✅ Logout do Firebase Auth realizado");
+            } catch (error) {
+                console.error("Erro no signOut:", error);
+            }
+            
             sessionStorage.clear();
-            window.location.href = "index.html";
+            
+            setTimeout(() => {
+                hideLoading();
+                window.location.href = "index.html";
+            }, 500);
         }
 
         window.addEventListener('beforeunload', async () => {
-            isClosing = true;
-            const userId = sessionStorage.getItem('userId');
-            if (userId && window.db) {
-                await window.db.ref(`alunos/${userId}`).update({ 
-                    online: false, 
-                    desconectadoEm: Date.now(),
-                    motivo: "pagina_fechada"
-                });
+            if (!isClosing) {
+                isClosing = true;
+                const userId = sessionStorage.getItem('userId');
+                if (userId && window.db) {
+                    await window.db.ref(`alunos/${userId}`).remove();
+                }
             }
-            if (heartbeatInterval) clearInterval(heartbeatInterval);
-            if (timerInterval) clearInterval(timerInterval);
-            if (votosListener) votosListener.off();
-            if (feedbackListener) feedbackListener.off();
         });
 
         // Inicialização
@@ -695,15 +853,31 @@
             
             const userId = sessionStorage.getItem('userId');
             if (userId) {
+                const alunoExistente = await window.db.ref(`alunos/${userId}`).once('value');
+                if (!alunoExistente.exists()) {
+                    showToast("❌ Sessão encerrada pelo professor!", "error");
+                    setTimeout(() => {
+                        window.location.href = "index.html";
+                    }, 2000);
+                    return;
+                }
+                
                 await window.db.ref(`alunos/${userId}`).update({ online: true, ultimaAtividade: Date.now() });
                 await iniciarHeartbeat();
+                
+                // Carregar questões que o aluno já respondeu
+                await carregarQuestoesRespondidas();
             }
             
             loadAlunoData();
             listenToSessionStatus();
             listenToQuestions();
             listenToFeedback();
+            
+            hideChart();
         });
+        
+        window.confirmarLogout = confirmarLogout;
     </script>
 </body>
 </html>
