@@ -125,7 +125,7 @@
             line-height: 1.4;
         }
         
-        /* Alternativas - Layout Compacto */
+        /* Alternativas */
         .alternativas-grid {
             display: flex;
             flex-direction: column;
@@ -181,7 +181,7 @@
             text-align: left;
         }
         
-        /* Status de Respostas - Apenas contador (SEM MOSTRAR DISTRIBUIÇÃO) */
+        /* Status de Respostas */
         .status-container {
             background: #f9fafb;
             border-radius: 16px;
@@ -251,7 +251,7 @@
             100% { opacity: 1; transform: scale(1); }
         }
         
-        /* Modal de Feedback */
+        /* Modal de Feedback - COM ACERTO/ERRO */
         .feedback-modal {
             position: fixed;
             top: 0;
@@ -283,8 +283,42 @@
             margin-bottom: 15px;
         }
         .feedback-header i {
-            font-size: 45px;
+            font-size: 50px;
+        }
+        .feedback-header i.acertou {
             color: #10b981;
+        }
+        .feedback-header i.errou {
+            color: #ef4444;
+        }
+        .feedback-header h2 {
+            margin-top: 8px;
+            font-size: 22px;
+        }
+        .feedback-resultado {
+            background: #f3f4f6;
+            border-radius: 16px;
+            padding: 15px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .feedback-resultado p {
+            margin: 5px 0;
+        }
+        .minha-resposta {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-top: 8px;
+        }
+        .minha-resposta.acertou {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .minha-resposta.errou {
+            background: #fee2e2;
+            color: #991b1b;
         }
         .feedback-explicacao {
             background: #e0f2fe;
@@ -292,7 +326,7 @@
             border-radius: 16px;
             margin-bottom: 15px;
         }
-        .feedback-resposta {
+        .feedback-resposta-correta {
             background: #d1fae5;
             padding: 12px;
             border-radius: 16px;
@@ -310,6 +344,9 @@
             font-weight: 600;
             cursor: pointer;
             margin-top: 15px;
+        }
+        .btn-fechar-feedback:hover {
+            background: #059669;
         }
         
         .toast {
@@ -390,7 +427,6 @@
             <div class="question-text" id="questionText"></div>
             <div class="alternativas-grid" id="alternativasGrid"></div>
             
-            <!-- Status de Respostas - Apenas contador (SEM MOSTRAR DISTRIBUIÇÃO) -->
             <div class="status-container" id="statusContainer">
                 <div class="status-header">
                     <h4><i class="fas fa-users"></i> Respostas da Turma</h4>
@@ -438,6 +474,9 @@
         let aguardandoResposta = false;
         let questoesRespondidas = new Set();
         
+        // Armazenar a resposta do aluno para cada questão
+        let minhasRespostas = new Map();
+        
         // Referências para listeners
         let alunosListener = null;
         let respostasListener = null;
@@ -464,6 +503,7 @@
                 for (const [perguntaId, respostas] of Object.entries(todasRespostas)) {
                     if (respostas[userId]) {
                         questoesRespondidas.add(perguntaId);
+                        minhasRespostas.set(perguntaId, respostas[userId].letra);
                     }
                 }
             } catch (error) {
@@ -493,23 +533,19 @@
             heartbeatInterval = setInterval(updateHeartbeat, 15000);
         }
 
-        // Função para atualizar APENAS a quantidade de respostas (SEM DISTRIBUIÇÃO)
         async function atualizarStatusRespostas() {
             if (!currentQuestionId) return;
             
             try {
-                // Buscar total de alunos online
                 const alunosSnap = await window.db.ref('alunos').once('value');
                 const alunos = alunosSnap.val() || {};
                 const totalAlunos = Object.values(alunos).filter(a => a.online === true).length;
                 totalAlunosNaSala = totalAlunos;
                 
-                // Buscar respostas da questão atual
                 const respostasSnap = await window.db.ref(`respostas/${currentQuestionId}`).once('value');
                 const respostas = respostasSnap.val() || {};
                 const totalResponderam = Object.keys(respostas).length;
                 
-                // Atualizar UI - APENAS OS NÚMEROS
                 document.getElementById('totalAlunos').textContent = totalAlunos;
                 document.getElementById('responderamCount').textContent = totalResponderam;
                 
@@ -518,7 +554,6 @@
             }
         }
 
-        // Listener para mudanças nos alunos
         function listenToAlunosStatus() {
             if (alunosListener) {
                 alunosListener.off();
@@ -531,7 +566,6 @@
             });
         }
 
-        // Listener para mudanças nas respostas
         function listenToRespostas() {
             if (!currentQuestionId) return;
             
@@ -575,6 +609,9 @@
             hasAnswered = true;
             aguardandoResposta = false;
             
+            // Salvar a resposta do aluno
+            minhasRespostas.set(currentQuestionId, letra);
+            
             try {
                 document.querySelectorAll('.alternativa-btn').forEach(btn => btn.classList.add('disabled'));
                 
@@ -596,7 +633,6 @@
                 
                 showToast(`✅ Você respondeu ${letra}!`);
                 
-                // Atualizar status
                 await atualizarStatusRespostas();
                 
                 document.getElementById('questionContainer').classList.remove('active');
@@ -604,7 +640,6 @@
                 
                 if (timerInterval) clearInterval(timerInterval);
                 
-                // Continuar ouvindo mudanças nas respostas
                 listenToRespostas();
                 
             } catch (error) {
@@ -654,34 +689,52 @@
             aguardandoResposta = false;
         }
 
-        function mostrarFeedback(feedback, feedbackId) {
+        // FUNÇÃO DE FEEDBACK MELHORADA - Mostra se acertou ou errou
+        async function mostrarFeedback(feedback, feedbackId) {
             const userId = sessionStorage.getItem('userId');
             const questaoId = feedback.questaoId;
             
+            // Encontrar a pergunta específica que o aluno respondeu
             let perguntaIdRelacionada = null;
+            let minhaResposta = null;
             
+            // Verificar se o feedbackId corresponde a uma questão que o aluno respondeu
             if (questoesRespondidas.has(feedbackId)) {
                 perguntaIdRelacionada = feedbackId;
+                minhaResposta = minhasRespostas.get(feedbackId);
             }
             
+            // Se não encontrou, procurar pelo questaoId
             if (!perguntaIdRelacionada) {
-                for (const perguntaId of questoesRespondidas) {
+                for (const [perguntaId, resposta] of minhasRespostas) {
                     if (perguntaId.includes(String(questaoId))) {
                         perguntaIdRelacionada = perguntaId;
+                        minhaResposta = resposta;
                         break;
                     }
                 }
             }
             
-            if (!perguntaIdRelacionada) {
+            // Se o aluno não respondeu esta questão, não mostrar feedback
+            if (!perguntaIdRelacionada || !minhaResposta) {
+                console.log("Feedback ignorado - aluno não respondeu esta questão");
                 return;
             }
             
+            // Verificar se já viu este feedback
             if (sessionStorage.getItem(`feedback_visto_${feedbackId}`)) {
                 return;
             }
             
             sessionStorage.setItem(`feedback_visto_${feedbackId}`, "true");
+            
+            // Verificar se acertou ou errou
+            const respostaCorreta = feedback.respostaCorreta;
+            const acertou = (minhaResposta === respostaCorreta);
+            
+            // Buscar o texto da resposta do aluno
+            const minhaRespostaTexto = feedback.alternativas ? feedback.alternativas[minhaResposta] : '';
+            const respostaCorretaTexto = feedback.alternativas ? feedback.alternativas[respostaCorreta] : '';
             
             const modal = document.createElement('div');
             modal.className = 'feedback-modal';
@@ -689,33 +742,45 @@
             modal.innerHTML = `
                 <div class="feedback-modal-content">
                     <div class="feedback-header">
-                        <i class="fas fa-check-circle"></i>
-                        <h2 style="margin-top: 8px;">📚 Resultado da Questão</h2>
+                        <i class="fas ${acertou ? 'fa-check-circle' : 'fa-times-circle'} ${acertou ? 'acertou' : 'errou'}"></i>
+                        <h2 style="color: ${acertou ? '#10b981' : '#ef4444'}">
+                            ${acertou ? '✅ ACERTOU!' : '❌ ERROU!'}
+                        </h2>
                     </div>
+                    
+                    <div class="feedback-resultado">
+                        <p><strong>Sua resposta:</strong> ${minhaResposta}) ${minhaRespostaTexto.substring(0, 100)}</p>
+                        <div class="minha-resposta ${acertou ? 'acertou' : 'errou'}">
+                            ${acertou ? '🎉 Parabéns! Você acertou!' : '😢 Infelizmente você errou dessa vez'}
+                        </div>
+                    </div>
+                    
                     <div class="feedback-explicacao">
                         <p style="font-size: 13px; color: #0369a1; margin-bottom: 8px;">
-                            <i class="fas fa-quote-left"></i> <strong>Sobre a questão:</strong>
+                            <i class="fas fa-quote-left"></i> <strong>Feedback do Professor:</strong>
                         </p>
-                        <p style="font-weight: 500; margin-bottom: 12px; font-size: 14px;">${feedback.questaoTexto || ''}</p>
-                        <div class="feedback-resposta">
-                            <strong>✅ Resposta correta: ${feedback.respostaCorreta})</strong><br>
-                            <small>${feedback.alternativas ? feedback.alternativas[feedback.respostaCorreta] : ''}</small>
-                        </div>
-                        <p style="font-size: 13px; margin-top: 12px;">
-                            <i class="fas fa-lightbulb"></i> <strong>Explicação:</strong><br>
-                            ${feedback.explicacao || ''}
-                        </p>
+                        <p style="font-size: 14px; line-height: 1.5;">${feedback.explicacao || feedback.texto || ''}</p>
                     </div>
+                    
+                    <div class="feedback-resposta-correta">
+                        <strong>📖 Resposta correta: ${respostaCorreta})</strong><br>
+                        <small>${respostaCorretaTexto.substring(0, 150)}${respostaCorretaTexto.length > 150 ? '...' : ''}</small>
+                    </div>
+                    
                     <button class="btn-fechar-feedback" onclick="this.closest('.feedback-modal').remove()">
-                        <i class="fas fa-check-circle"></i> Entendi
+                        <i class="fas fa-check-circle"></i> Entendi, continuar
                     </button>
                 </div>
             `;
             
             document.body.appendChild(modal);
             
+            // Som de notificação (diferente para acerto/erro)
             try {
-                const audio = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
+                let somUrl = acertou ? 
+                    'https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3' : 
+                    'https://www.soundjay.com/misc/sounds/failure-drumroll-01.mp3';
+                const audio = new Audio(somUrl);
                 audio.volume = 0.2;
                 audio.play().catch(e => console.log("Som não reproduzido"));
             } catch(e) {}
@@ -810,6 +875,7 @@
                             if (resposta.exists()) {
                                 hasAnswered = true;
                                 aguardandoResposta = false;
+                                minhasRespostas.set(pergunta.id, resposta.val().letra);
                                 document.getElementById('answeredContainer').style.display = 'block';
                                 await atualizarStatusRespostas();
                                 listenToRespostas();
@@ -824,10 +890,8 @@
                         createAlternatives(pergunta.alternativas);
                         startTimer(pergunta.tempoLimite);
                         
-                        // Atualizar status inicial
                         await atualizarStatusRespostas();
                         
-                        // Iniciar listeners
                         listenToAlunosStatus();
                         listenToRespostas();
                     }
