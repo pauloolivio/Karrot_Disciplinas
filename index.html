@@ -9,6 +9,7 @@
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script src="firebase-config.js"></script>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -255,10 +256,6 @@
             border-left: 3px solid #0369a1;
         }
 
-        .info-message i {
-            margin-right: 8px;
-        }
-
         .success-message {
             background: #d1fae5;
             color: #065f46;
@@ -340,13 +337,13 @@
                         <label><i class="fas fa-lock"></i> Senha</label>
                         <input type="password" id="professorPassword" placeholder="••••••••">
                     </div>
-                    <button class="login-btn" onclick="loginProfessorEmail()">
+                    <button class="login-btn" onclick="loginProfessorEmail(event)">
                         <i class="fas fa-sign-in-alt"></i> Entrar com Email
                     </button>
                     
                     <div class="divider"><span>ou</span></div>
                     
-                    <button class="login-btn google-btn" onclick="loginProfessorGoogle()">
+                    <button class="login-btn google-btn" onclick="loginProfessorGoogle(event)">
                         <i class="fab fa-google"></i> Entrar com Google
                     </button>
                     
@@ -364,7 +361,7 @@
                         <label><i class="fas fa-id-card"></i> RA (Registro Acadêmico)</label>
                         <input type="text" id="studentRA" placeholder="Ex: 202400123" autocomplete="off">
                     </div>
-                    <button class="login-btn" onclick="loginStudent()">
+                    <button class="login-btn" onclick="loginStudent(event)">
                         <i class="fas fa-door-open"></i> Entrar na Sala
                     </button>
                     
@@ -376,12 +373,11 @@
         </div>
     </div>
 
-    <script src="firebase-config.js"></script>
     <script>
         // Lista de emails autorizados para professor
         const emailsAutorizados = [
             "paulooliviof@hotmail.com",
-            "pfilho@professores.utfor.edu.br"
+            "pfilho@professores.utfpr.edu.br"
         ];
 
         let currentRole = null;
@@ -406,10 +402,12 @@
 
         async function isEmailAutorizado(email) {
             try {
-                const docRef = firestore.collection("professoresAutorizados").doc(email.replace(/\./g, '_'));
-                const docSnap = await docRef.get();
-                if (docSnap.exists && docSnap.data().autorizado === true) {
-                    return true;
+                if (window.firestore) {
+                    const docRef = window.firestore.collection("professoresAutorizados").doc(email.replace(/\./g, '_'));
+                    const docSnap = await docRef.get();
+                    if (docSnap.exists && docSnap.data().autorizado === true) {
+                        return true;
+                    }
                 }
             } catch(e) {
                 console.log("Erro ao verificar Firestore:", e);
@@ -432,7 +430,8 @@
             }, 4000);
         }
 
-        window.loginProfessorEmail = async function() {
+        window.loginProfessorEmail = async function(event) {
+            const btn = event.currentTarget;
             const email = document.getElementById('professorEmail').value.trim();
             const password = document.getElementById('professorPassword').value;
             
@@ -447,64 +446,65 @@
             }
             
             try {
-                const btn = event.target;
-                const originalText = btn.innerHTML;
                 btn.innerHTML = '<span class="loading"></span> Entrando...';
                 btn.disabled = true;
                 
-                await auth.signInWithEmailAndPassword(email, password);
+                await window.auth.signInWithEmailAndPassword(email, password);
                 
-                if (await isEmailAutorizado(email)) {
-                    sessionStorage.setItem('userRole', 'professor');
-                    sessionStorage.setItem('userEmail', email);
-                    window.location.href = "professor.html";
-                } else {
-                    await auth.signOut();
-                    showError('professorForm', '❌ Email não autorizado');
-                    btn.innerHTML = originalText;
-                    btn.disabled = false;
+                // Limpar sessão antiga
+                if (window.db) {
+                    await window.db.ref('sessao/perguntaAtiva').set(null);
                 }
+                
+                sessionStorage.setItem('userRole', 'professor');
+                sessionStorage.setItem('userEmail', email);
+                window.location.href = "professor.html";
+                
             } catch(error) {
-                let mensagem = "Erro ao fazer login";
-                if (error.code === 'auth/user-not-found') mensagem = "Usuário não encontrado";
+                console.error("Erro detalhado:", error);
+                let mensagem = "Erro ao fazer login: " + error.message;
+                if (error.code === 'auth/user-not-found') mensagem = "Usuário não encontrado. Verifique suas credenciais.";
                 else if (error.code === 'auth/wrong-password') mensagem = "Senha incorreta";
                 else if (error.code === 'auth/invalid-email') mensagem = "Email inválido";
                 showError('professorForm', mensagem);
-                const btn = event.target;
                 btn.innerHTML = '<i class="fas fa-envelope"></i> Entrar com Email';
                 btn.disabled = false;
             }
         };
 
-        window.loginProfessorGoogle = async function() {
+        window.loginProfessorGoogle = async function(event) {
+            const btn = event.currentTarget;
             try {
-                const btn = event.target;
-                const originalText = btn.innerHTML;
                 btn.innerHTML = '<span class="loading"></span> Entrando...';
                 btn.disabled = true;
                 
-                const result = await auth.signInWithPopup(googleProvider);
+                const result = await window.auth.signInWithPopup(window.googleProvider);
                 const email = result.user.email;
                 
                 if (await isEmailAutorizado(email)) {
+                    // Limpar sessão antiga
+                    if (window.db) {
+                        await window.db.ref('sessao/perguntaAtiva').set(null);
+                    }
                     sessionStorage.setItem('userRole', 'professor');
                     sessionStorage.setItem('userEmail', email);
                     window.location.href = "professor.html";
                 } else {
-                    await auth.signOut();
+                    await window.auth.signOut();
                     showError('professorForm', '❌ Email não autorizado');
-                    btn.innerHTML = originalText;
+                    btn.innerHTML = '<i class="fab fa-google"></i> Entrar com Google';
                     btn.disabled = false;
                 }
             } catch(error) {
-                showError('professorForm', 'Erro ao fazer login com Google');
-                const btn = event.target;
+                console.error(error);
+                showError('professorForm', 'Erro ao fazer login com Google: ' + error.message);
                 btn.innerHTML = '<i class="fab fa-google"></i> Entrar com Google';
                 btn.disabled = false;
             }
         };
 
-        window.loginStudent = async function() {
+        window.loginStudent = async function(event) {
+            const btn = event.currentTarget;
             const nomeCompleto = document.getElementById('studentName').value.trim();
             const ra = document.getElementById('studentRA').value.trim();
             
@@ -526,13 +526,20 @@
             }
             
             try {
-                const btn = event.target;
-                const originalText = btn.innerHTML;
                 btn.innerHTML = '<span class="loading"></span> Entrando...';
                 btn.disabled = true;
                 
-                const result = await auth.signInAnonymously();
+                const result = await window.auth.signInAnonymously();
                 const userId = result.user.uid;
+                
+                // Desconectar outros alunos com o mesmo RA
+                const alunosSnap = await window.db.ref('alunos').once('value');
+                const alunos = alunosSnap.val() || {};
+                for (const [id, aluno] of Object.entries(alunos)) {
+                    if (aluno.ra === ra && id !== userId) {
+                        await window.db.ref(`alunos/${id}`).update({ online: false, motivo: "novo_login_mesmo_ra", desconectadoEm: Date.now() });
+                    }
+                }
                 
                 const alunoData = {
                     nome: nomeCompleto,
@@ -542,7 +549,7 @@
                     ultimaAtividade: Date.now()
                 };
                 
-                await db.ref(`alunos/${userId}`).set(alunoData);
+                await window.db.ref(`alunos/${userId}`).set(alunoData);
                 
                 sessionStorage.setItem('userRole', 'aluno');
                 sessionStorage.setItem('userId', userId);
@@ -550,30 +557,35 @@
                 sessionStorage.setItem('alunoRA', ra);
                 
                 window.location.href = "aluno.html";
+                
             } catch(error) {
-                let mensagem = "Erro ao entrar na sala";
+                console.error("Erro no login do aluno:", error);
+                let mensagem = "Erro ao entrar na sala: " + error.message;
                 if (error.code === 'auth/operation-not-allowed') {
-                    mensagem = "Login anônimo não está habilitado no Firebase";
+                    mensagem = "Login anônimo não está habilitado no Firebase. Ative em Authentication > Sign-in methods";
                 }
                 showError('studentForm', mensagem);
-                const btn = event.target;
                 btn.innerHTML = '<i class="fas fa-door-open"></i> Entrar na Sala';
                 btn.disabled = false;
             }
         };
 
+        // Inicializar - selecionar aluno como padrão
         selectRole('student');
         
-        auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                const role = sessionStorage.getItem('userRole');
-                if (role === 'professor' && window.location.pathname.includes('index.html')) {
-                    window.location.href = "professor.html";
-                } else if (role === 'aluno' && window.location.pathname.includes('index.html')) {
-                    window.location.href = "aluno.html";
+        // Verificar se já está logado
+        if (window.auth) {
+            window.auth.onAuthStateChanged(async (user) => {
+                if (user) {
+                    const role = sessionStorage.getItem('userRole');
+                    if (role === 'professor') {
+                        window.location.href = "professor.html";
+                    } else if (role === 'aluno') {
+                        window.location.href = "aluno.html";
+                    }
                 }
-            }
-        });
+            });
+        }
     </script>
 </body>
 </html>

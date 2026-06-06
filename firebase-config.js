@@ -10,11 +10,20 @@
         measurementId: "G-2V3LFXZJLK"
     };
 
-// Inicializar Firebase
-firebase.initializeApp(firebaseConfig);
 
-// Exportar serviços para usar nos outros arquivos
-const auth = firebase.auth();
-const db = firebase.database();
-const firestore = firebase.firestore();
-const googleProvider = new firebase.auth.GoogleAuthProvider();
+// Inicializa o Firebase (Compat Mode)
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+}
+
+// Vincula os módulos ao objeto window para os outros scripts encontrarem
+window.auth = firebase.auth();
+window.db = firebase.database();
+
+// Se for usar Firestore futuramente
+if (typeof firebase.firestore === "function") {
+    window.firestore = firebase.firestore();
+}
+
+// Provedor de Autenticação do Google
+window.googleProvider = new firebase.auth.GoogleAuthProvider();

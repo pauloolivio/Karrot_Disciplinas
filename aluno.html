@@ -4,13 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Karoot - Aluno</title>
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-    <!-- Chart.js -->
+    <script src="firebase-config.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -20,7 +18,7 @@
             min-height: 100vh;
             padding: 20px;
         }
-        .app-container { width: 100%; max-width: 1200px; margin: 0 auto; }
+        .app-container { width: 100%; max-width: 800px; margin: 0 auto; }
         .header {
             background: rgba(255,255,255,0.95);
             border-radius: 20px;
@@ -31,7 +29,6 @@
             align-items: center;
             flex-wrap: wrap;
             gap: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
         .user-info { display: flex; align-items: center; gap: 15px; }
         .avatar {
@@ -44,41 +41,45 @@
             font-size: 24px;
             color: white;
         }
-        .user-details h2 { font-size: 18px; color: #1f2937; margin-bottom: 4px; }
-        .user-details p { font-size: 12px; color: #6b7280; }
         .status-badge {
             background: #10b981;
             padding: 6px 12px;
             border-radius: 20px;
             font-size: 12px;
             color: white;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
         }
         .logout-btn {
             background: #f3f4f6;
             padding: 10px 18px;
             border-radius: 12px;
             cursor: pointer;
-            color: #6b7280;
-            font-size: 14px;
-            font-weight: 500;
             border: none;
-            transition: all 0.3s;
         }
-        .logout-btn:hover { background: #fee; color: #ef4444; transform: translateY(-2px); }
+        
+        .waiting-container {
+            background: white;
+            border-radius: 24px;
+            padding: 60px 30px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .waiting-container i { font-size: 60px; color: #667eea; margin-bottom: 20px; }
+        .waiting-container h3 { font-size: 24px; color: #1f2937; margin-bottom: 10px; }
+        
         .question-container {
             background: white;
             border-radius: 24px;
             padding: 30px;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             display: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
-        .question-container.active { display: block; animation: fadeInUp 0.5s ease; }
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-        .question-header { text-align: center; margin-bottom: 25px; }
+        .question-container.active { display: block; animation: fadeIn 0.5s ease; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
         .timer {
             position: relative;
             width: 80px;
@@ -102,8 +103,9 @@
             font-weight: bold;
             color: #667eea;
         }
-        .question-text { font-size: 24px; font-weight: 700; color: #1f2937; margin-bottom: 10px; }
-        .question-sub { color: #6b7280; font-size: 14px; }
+        
+        .question-text { font-size: 22px; font-weight: 700; color: #1f2937; text-align: center; margin-bottom: 25px; }
+        
         .alternativas-grid {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -111,62 +113,112 @@
             margin-bottom: 30px;
         }
         .alternativa-btn {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            background: #f3f4f6;
             border: 2px solid #e5e7eb;
-            padding: 20px;
+            padding: 15px;
             border-radius: 16px;
             cursor: pointer;
-            transition: all 0.3s;
             text-align: center;
+            transition: all 0.3s;
         }
-        .alternativa-btn:hover:not(:disabled) { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
-        .alternativa-btn.selected { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-color: #667eea; color: white; transform: scale(1.02); }
-        .alternativa-btn.disabled { opacity: 0.6; cursor: not-allowed; }
-        .alternativa-letra { font-size: 28px; font-weight: bold; margin-bottom: 8px; }
-        .alternativa-texto { font-size: 14px; font-weight: 500; }
-        .alternativa-stats { font-size: 12px; margin-top: 10px; opacity: 0.8; }
+        .alternativa-btn:hover:not(:disabled) { transform: translateY(-3px); background: #e5e7eb; }
+        .alternativa-btn.selected { background: #10b981; color: white; border-color: #10b981; }
+        .alternativa-btn.disabled { opacity: 0.5; cursor: not-allowed; }
+        .alternativa-letra { font-size: 24px; font-weight: bold; margin-bottom: 8px; }
+        
         .grafico-container {
             background: #f9fafb;
             border-radius: 20px;
             padding: 20px;
             margin-top: 20px;
         }
-        .grafico-title { font-size: 14px; color: #6b7280; margin-bottom: 15px; text-align: center; font-weight: 600; }
         canvas { max-height: 250px; }
-        .waiting-container {
+        
+        .finished-container, .answered-container {
             background: white;
             border-radius: 24px;
             padding: 50px;
             text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
-        .waiting-container i { font-size: 60px; color: #667eea; margin-bottom: 20px; }
-        .waiting-container h3 { font-size: 24px; color: #1f2937; margin-bottom: 10px; }
-        .pulse { animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.05); } 100% { opacity: 1; transform: scale(1); } }
-        .finished-container {
-            background: white;
-            border-radius: 24px;
-            padding: 50px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             display: none;
         }
-        @media (max-width: 768px) {
-            body { padding: 10px; }
-            .header { padding: 15px 20px; }
-            .avatar { width: 40px; height: 40px; font-size: 20px; }
-            .question-text { font-size: 18px; }
-            .alternativas-grid { grid-template-columns: 1fr; gap: 12px; }
-            .alternativa-btn { padding: 15px; }
-            .waiting-container, .finished-container { padding: 30px 20px; }
+        .disconnected-container {
+            background: white;
+            border-radius: 24px;
+            padding: 50px;
+            text-align: center;
+            display: none;
         }
-        @keyframes fadeInOut {
-            0% { opacity: 0; transform: translateX(-50%) translateY(20px); }
-            15% { opacity: 1; transform: translateX(-50%) translateY(0); }
-            85% { opacity: 1; transform: translateX(-50%) translateY(0); }
-            100% { opacity: 0; transform: translateX(-50%) translateY(-20px); }
+        .disconnected-container i { font-size: 60px; color: #ef4444; margin-bottom: 20px; }
+        .pulse { animation: pulse 1.5s infinite; }
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.05); }
+            100% { opacity: 1; transform: scale(1); }
         }
+        
+        /* Modal de Feedback */
+        .feedback-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            animation: fadeInModal 0.3s ease;
+        }
+        @keyframes fadeInModal {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .feedback-modal-content {
+            background: white;
+            max-width: 500px;
+            width: 90%;
+            border-radius: 24px;
+            padding: 30px;
+            position: relative;
+            max-height: 85vh;
+            overflow-y: auto;
+        }
+        .feedback-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .feedback-header i {
+            font-size: 50px;
+            color: #10b981;
+        }
+        .feedback-explicacao {
+            background: #e0f2fe;
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+        }
+        .feedback-resposta {
+            background: #d1fae5;
+            padding: 15px;
+            border-radius: 16px;
+            margin-top: 15px;
+            text-align: center;
+        }
+        .btn-fechar-feedback {
+            width: 100%;
+            padding: 14px;
+            background: #10b981;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        .btn-fechar-feedback:hover { background: #059669; }
+        
         .toast {
             position: fixed;
             bottom: 20px;
@@ -176,9 +228,15 @@
             color: white;
             padding: 12px 24px;
             border-radius: 12px;
-            font-size: 14px;
             z-index: 1000;
-            animation: fadeInOut 2s ease;
+            animation: fadeOut 2s ease;
+        }
+        .toast.warning { background: #f59e0b; }
+        .toast.error { background: #ef4444; }
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; }
         }
     </style>
 </head>
@@ -189,12 +247,12 @@
                 <div class="avatar"><i class="fas fa-user-graduate"></i></div>
                 <div class="user-details">
                     <h2 id="alunoNome">Carregando...</h2>
-                    <p><i class="fas fa-id-card"></i> RA: <span id="alunoRA">---</span></p>
+                    <p>RA: <span id="alunoRA">---</span></p>
                 </div>
             </div>
-            <div style="display: flex; gap: 10px; align-items: center;">
-                <div class="status-badge"><i class="fas fa-circle"></i> Conectado</div>
-                <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Sair</button>
+            <div style="display: flex; gap: 10px;">
+                <div class="status-badge"><i class="fas fa-circle"></i> Online</div>
+                <button class="logout-btn" onclick="logout()">Sair</button>
             </div>
         </div>
 
@@ -205,38 +263,49 @@
         </div>
 
         <div class="question-container" id="questionContainer">
-            <div class="question-header">
-                <div class="timer">
-                    <svg class="timer-svg" width="80" height="80" viewBox="0 0 100 100">
-                        <circle class="timer-circle-bg" cx="50" cy="50" r="45" fill="none" stroke-width="8"/>
-                        <circle class="timer-circle" id="timerCircle" cx="50" cy="50" r="45" fill="none" stroke-width="8" stroke="#667eea"/>
-                    </svg>
-                    <div class="timer-text" id="timerText">15</div>
-                </div>
-                <div class="question-text" id="questionText"></div>
-                <div class="question-sub">Selecione uma alternativa abaixo</div>
+            <div class="timer">
+                <svg class="timer-svg" width="80" height="80" viewBox="0 0 100 100">
+                    <circle class="timer-circle-bg" cx="50" cy="50" r="45" fill="none" stroke-width="8"/>
+                    <circle class="timer-circle" id="timerCircle" cx="50" cy="50" r="45" fill="none" stroke-width="8" stroke="#667eea"/>
+                </svg>
+                <div class="timer-text" id="timerText">0</div>
             </div>
+            <div class="question-text" id="questionText"></div>
             <div class="alternativas-grid" id="alternativasGrid"></div>
             <div class="grafico-container">
-                <div class="grafico-title"><i class="fas fa-chart-bar"></i> Respostas dos Alunos (Ao Vivo)</div>
+                <div style="text-align: center; margin-bottom: 10px;"><i class="fas fa-chart-bar"></i> Respostas da Turma</div>
                 <canvas id="votosChart"></canvas>
             </div>
         </div>
 
         <div class="finished-container" id="finishedContainer">
-            <i class="fas fa-clock"></i>
+            <i class="fas fa-clock" style="font-size: 50px; color: #ef4444;"></i>
             <h3>Tempo Esgotado!</h3>
-            <p>Aguardando o professor discutir a resposta...</p>
+            <p>Aguardando o professor...</p>
+        </div>
+
+        <div class="answered-container" id="answeredContainer">
+            <i class="fas fa-check-circle" style="font-size: 50px; color: #10b981;"></i>
+            <h3>Resposta Registrada!</h3>
+            <p>Aguardando o resultado da turma...</p>
+        </div>
+
+        <div class="disconnected-container" id="disconnectedContainer">
+            <i class="fas fa-plug"></i>
+            <h3>Sessão Encerrada!</h3>
+            <p>O professor encerrou a sessão. Você será redirecionado...</p>
         </div>
     </div>
 
-    <script src="firebase-config.js"></script>
     <script>
-        let currentUser = null;
         let currentQuestionId = null;
         let hasAnswered = false;
-        let votosChart = null;
         let timerInterval = null;
+        let votosChart = null;
+        let votosListener = null;
+        let heartbeatInterval = null;
+        let isClosing = false;
+        let feedbackListener = null;
 
         function loadAlunoData() {
             const nome = sessionStorage.getItem('alunoNome');
@@ -247,140 +316,393 @@
             }
         }
 
+        async function iniciarHeartbeat() {
+            const userId = sessionStorage.getItem('userId');
+            if (!userId) return;
+            
+            const updateHeartbeat = async () => {
+                if (!isClosing && userId && window.db) {
+                    try {
+                        await window.db.ref(`alunos/${userId}`).update({ 
+                            ultimaAtividade: Date.now(),
+                            online: true
+                        });
+                    } catch (error) {
+                        console.error("Heartbeat error:", error);
+                    }
+                }
+            };
+            
+            await updateHeartbeat();
+            heartbeatInterval = setInterval(updateHeartbeat, 15000);
+        }
+
         function updateChart(votos) {
             const ctx = document.getElementById('votosChart').getContext('2d');
             if (votosChart) votosChart.destroy();
+            
             votosChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
                     labels: ['A', 'B', 'C', 'D'],
                     datasets: [{
-                        label: 'Respostas',
+                        label: 'Votos',
                         data: [votos.A || 0, votos.B || 0, votos.C || 0, votos.D || 0],
-                        backgroundColor: ['rgba(102,126,234,0.7)', 'rgba(118,75,162,0.7)', 'rgba(236,72,153,0.7)', 'rgba(245,158,11,0.7)'],
+                        backgroundColor: ['#667eea', '#764ba2', '#ec489a', '#f59e0b'],
                         borderRadius: 8
                     }]
                 },
-                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
             });
         }
 
-        function createAlternatives(alternativas, votos) {
+        function createAlternatives(alternativas) {
             const grid = document.getElementById('alternativasGrid');
             grid.innerHTML = '';
             const letras = ['A', 'B', 'C', 'D'];
             letras.forEach(letra => {
                 const btn = document.createElement('button');
                 btn.className = 'alternativa-btn';
+                btn.innerHTML = `<div class="alternativa-letra">${letra}</div><div>${alternativas[letra] || ''}</div>`;
+                btn.onclick = () => submitAnswer(letra);
                 if (hasAnswered) btn.classList.add('disabled');
-                btn.innerHTML = `<div class="alternativa-letra">${letra}</div><div class="alternativa-texto">${alternativas[letra] || 'Alternativa'}</div><div class="alternativa-stats"><i class="fas fa-users"></i> ${votos[letra] || 0} votos</div>`;
-                btn.onclick = () => !hasAnswered && submitAnswer(letra);
                 grid.appendChild(btn);
             });
         }
 
         async function submitAnswer(letra) {
-            if (hasAnswered) return;
+            if (hasAnswered) {
+                showToast("Você já respondeu!", "warning");
+                return;
+            }
+            
             const userId = sessionStorage.getItem('userId');
             if (!userId || !currentQuestionId) return;
+            
             hasAnswered = true;
-            document.querySelectorAll('.alternativa-btn').forEach(btn => btn.classList.add('disabled'));
-            await db.ref(`respostas/${currentQuestionId}/${userId}`).set({ letra: letra, timestamp: Date.now() });
-            const votoRef = db.ref(`votos/${currentQuestionId}/${letra}`);
-            votoRef.transaction(current => (current || 0) + 1);
-            const btns = document.querySelectorAll('.alternativa-btn');
-            const letras = ['A', 'B', 'C', 'D'];
-            const index = letras.indexOf(letra);
-            if (btns[index]) btns[index].classList.add('selected');
-            showToast(`✅ Você respondeu ${letra}!`);
-        }
-
-        function showToast(message) {
-            const toast = document.createElement('div');
-            toast.className = 'toast';
-            toast.innerHTML = message;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 2000);
+            
+            try {
+                document.querySelectorAll('.alternativa-btn').forEach(btn => btn.classList.add('disabled'));
+                
+                const btns = document.querySelectorAll('.alternativa-btn');
+                const letras = ['A', 'B', 'C', 'D'];
+                const index = letras.indexOf(letra);
+                if (btns[index]) btns[index].classList.add('selected');
+                
+                await window.db.ref(`respostas/${currentQuestionId}/${userId}`).set({
+                    letra: letra,
+                    timestamp: Date.now(),
+                    nome: sessionStorage.getItem('alunoNome'),
+                    ra: sessionStorage.getItem('alunoRA')
+                });
+                
+                await window.db.ref(`votos/${currentQuestionId}/${letra}`).transaction(current => (current || 0) + 1);
+                
+                showToast(`✅ Você respondeu ${letra}!`);
+                
+                document.getElementById('questionContainer').classList.remove('active');
+                document.getElementById('answeredContainer').style.display = 'block';
+                
+                if (timerInterval) clearInterval(timerInterval);
+                
+            } catch (error) {
+                console.error(error);
+                showToast("Erro ao enviar resposta!", "error");
+                hasAnswered = false;
+                document.querySelectorAll('.alternativa-btn').forEach(btn => btn.classList.remove('disabled'));
+                if (btns[index]) btns[index].classList.remove('selected');
+            }
         }
 
         function startTimer(segundos) {
             if (timerInterval) clearInterval(timerInterval);
+            
             let timeLeft = segundos;
             const timerText = document.getElementById('timerText');
             const timerCircle = document.getElementById('timerCircle');
             const circumference = 2 * Math.PI * 45;
-            function updateTimer() {
+            
+            function update() {
                 timerText.textContent = timeLeft;
                 const offset = circumference - (timeLeft / segundos) * circumference;
                 timerCircle.style.strokeDasharray = circumference;
                 timerCircle.style.strokeDashoffset = offset;
-                if (timeLeft <= 0) clearInterval(timerInterval);
+                
+                if (timeLeft <= 0) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    if (!hasAnswered) {
+                        showToast("⏰ Tempo esgotou!", "warning");
+                        document.getElementById('questionContainer').classList.remove('active');
+                        document.getElementById('finishedContainer').style.display = 'block';
+                    }
+                }
                 timeLeft--;
             }
-            updateTimer();
-            timerInterval = setInterval(updateTimer, 1000);
+            
+            update();
+            timerInterval = setInterval(update, 1000);
         }
 
-        function listenToActiveQuestion() {
-            const perguntaRef = db.ref('sessao/perguntaAtiva');
-            perguntaRef.on('value', async (snapshot) => {
-                const pergunta = snapshot.val();
-                if (pergunta && pergunta.ativa === true) {
-                    currentQuestionId = pergunta.id;
-                    hasAnswered = false;
-                    document.getElementById('waitingContainer').style.display = 'none';
-                    document.getElementById('finishedContainer').style.display = 'none';
-                    document.getElementById('questionContainer').classList.add('active');
-                    document.getElementById('questionText').textContent = pergunta.texto;
-                    const votosIniciais = {A:0, B:0, C:0, D:0};
-                    createAlternatives(pergunta.alternativas, votosIniciais);
-                    if (pergunta.tempoLimite) startTimer(pergunta.tempoLimite);
-                    const votosRef = db.ref(`votos/${pergunta.id}`);
-                    votosRef.on('value', (votosSnap) => {
-                        const votos = votosSnap.val() || {A:0, B:0, C:0, D:0};
-                        updateChart(votos);
-                        const letras = ['A', 'B', 'C', 'D'];
-                        const btns = document.querySelectorAll('.alternativa-btn');
-                        btns.forEach((btn, idx) => {
-                            const letra = letras[idx];
-                            const statsDiv = btn.querySelector('.alternativa-stats');
-                            if (statsDiv) statsDiv.innerHTML = `<i class="fas fa-users"></i> ${votos[letra] || 0} votos`;
-                        });
-                    });
-                } else if (pergunta && pergunta.ativa === false && currentQuestionId === pergunta.id) {
-                    if (timerInterval) clearInterval(timerInterval);
-                    document.getElementById('questionContainer').classList.remove('active');
-                    document.getElementById('finishedContainer').style.display = 'block';
-                    if (currentQuestionId) db.ref(`votos/${currentQuestionId}`).off();
-                    currentQuestionId = null;
-                    setTimeout(() => {
-                        if (!currentQuestionId) {
-                            document.getElementById('finishedContainer').style.display = 'none';
-                            document.getElementById('waitingContainer').style.display = 'block';
-                        }
-                    }, 3000);
+        function resetUI() {
+            document.getElementById('waitingContainer').style.display = 'none';
+            document.getElementById('questionContainer').classList.remove('active');
+            document.getElementById('finishedContainer').style.display = 'none';
+            document.getElementById('answeredContainer').style.display = 'none';
+            document.getElementById('disconnectedContainer').style.display = 'none';
+            
+            if (timerInterval) clearInterval(timerInterval);
+            if (votosListener) {
+                votosListener.off();
+                votosListener = null;
+            }
+            
+            hasAnswered = false;
+        }
+
+        function mostrarFeedback(feedback, feedbackId) {
+            if (sessionStorage.getItem(`feedback_visto_${feedbackId}`)) {
+                return;
+            }
+            
+            sessionStorage.setItem(`feedback_visto_${feedbackId}`, "true");
+            
+            const modal = document.createElement('div');
+            modal.className = 'feedback-modal';
+            
+            const alternativasHtml = Object.entries(feedback.alternativas || {})
+                .map(([letra, texto]) => `<div style="padding: 5px 0;"><strong>${letra})</strong> ${texto}</div>`)
+                .join('');
+            
+            modal.innerHTML = `
+                <div class="feedback-modal-content">
+                    <div class="feedback-header">
+                        <i class="fas fa-check-circle"></i>
+                        <h2 style="margin-top: 10px;">📚 Resposta Correta!</h2>
+                    </div>
+                    
+                    <div class="feedback-explicacao">
+                        <p style="font-size: 14px; color: #0369a1; margin-bottom: 10px;">
+                            <i class="fas fa-quote-left"></i> <strong>Sobre a questão:</strong>
+                        </p>
+                        <p style="font-weight: 500; margin-bottom: 15px;">${feedback.questaoTexto || ''}</p>
+                        <div class="feedback-resposta">
+                            <strong>✅ Resposta correta: ${feedback.respostaCorreta})</strong><br>
+                            ${feedback.alternativas ? feedback.alternativas[feedback.respostaCorreta] : ''}
+                        </div>
+                        <p style="font-size: 14px; margin-top: 15px;">
+                            <i class="fas fa-lightbulb"></i> <strong>Explicação:</strong><br>
+                            ${feedback.explicacao || ''}
+                        </p>
+                    </div>
+                    
+                    <button class="btn-fechar-feedback" onclick="this.closest('.feedback-modal').remove()">
+                        <i class="fas fa-check-circle"></i> Entendi
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // Som de notificação
+            try {
+                const audio = new Audio('https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3');
+                audio.volume = 0.2;
+                audio.play().catch(e => console.log("Som não reproduzido"));
+            } catch(e) {}
+        }
+
+        function listenToFeedback() {
+            if (feedbackListener) {
+                feedbackListener.off();
+            }
+            
+            const feedbackRef = window.db.ref('feedback');
+            
+            feedbackListener = feedbackRef.on('child_added', (snapshot) => {
+                const feedback = snapshot.val();
+                const feedbackId = snapshot.key;
+                
+                if (feedback && feedback.status === "enviado") {
+                    mostrarFeedback(feedback, feedbackId);
+                }
+            });
+            
+            feedbackRef.on('child_changed', (snapshot) => {
+                const feedback = snapshot.val();
+                const feedbackId = snapshot.key;
+                
+                if (feedback && feedback.status === "enviado") {
+                    mostrarFeedback(feedback, feedbackId);
                 }
             });
         }
 
-        window.logout = async function() {
+        function listenToSessionStatus() {
+            const statusRef = window.db.ref('sessao/status');
+            
+            statusRef.on('value', (snapshot) => {
+                const status = snapshot.val();
+                
+                if (status && status.ativa === false && status.encerradaPor === "professor") {
+                    showToast("🔴 Professor encerrou a sessão! Você será desconectado.", "error");
+                    
+                    resetUI();
+                    document.getElementById('disconnectedContainer').style.display = 'block';
+                    
+                    if (heartbeatInterval) clearInterval(heartbeatInterval);
+                    if (timerInterval) clearInterval(timerInterval);
+                    if (votosListener) votosListener.off();
+                    if (feedbackListener) feedbackListener.off();
+                    
+                    const userId = sessionStorage.getItem('userId');
+                    if (userId && window.db) {
+                        window.db.ref(`alunos/${userId}`).update({ 
+                            online: false, 
+                            desconectadoPor: "professor_sessao",
+                            desconectadoEm: Date.now()
+                        });
+                    }
+                    
+                    setTimeout(() => {
+                        sessionStorage.clear();
+                        window.location.href = "index.html";
+                    }, 2500);
+                } else if (status && status.ativa === true) {
+                    if (!currentQuestionId) {
+                        resetUI();
+                        document.getElementById('waitingContainer').style.display = 'block';
+                    }
+                }
+            });
+        }
+
+        function listenToQuestions() {
+            const perguntaRef = window.db.ref('sessao/perguntaAtiva');
+            
+            perguntaRef.on('value', async (snapshot) => {
+                const pergunta = snapshot.val();
+                const userId = sessionStorage.getItem('userId');
+                
+                console.log("📩 Aluno recebeu:", pergunta);
+                
+                if (pergunta && pergunta.ativa === true) {
+                    if (currentQuestionId !== pergunta.id) {
+                        resetUI();
+                        currentQuestionId = pergunta.id;
+                        hasAnswered = false;
+                        
+                        if (userId) {
+                            const resposta = await window.db.ref(`respostas/${pergunta.id}/${userId}`).once('value');
+                            if (resposta.exists()) {
+                                hasAnswered = true;
+                                document.getElementById('answeredContainer').style.display = 'block';
+                                return;
+                            }
+                        }
+                        
+                        document.getElementById('waitingContainer').style.display = 'none';
+                        document.getElementById('questionContainer').classList.add('active');
+                        document.getElementById('questionText').textContent = pergunta.texto;
+                        
+                        createAlternatives(pergunta.alternativas);
+                        startTimer(pergunta.tempoLimite);
+                        
+                        if (votosListener) votosListener.off();
+                        votosListener = window.db.ref(`votos/${pergunta.id}`);
+                        votosListener.on('value', (votosSnap) => {
+                            const votos = votosSnap.val() || { A: 0, B: 0, C: 0, D: 0 };
+                            updateChart(votos);
+                        });
+                    }
+                } 
+                else if (pergunta && pergunta.ativa === false && currentQuestionId === pergunta.id) {
+                    if (timerInterval) clearInterval(timerInterval);
+                    document.getElementById('questionContainer').classList.remove('active');
+                    document.getElementById('answeredContainer').style.display = 'none';
+                    document.getElementById('finishedContainer').style.display = 'block';
+                    
+                    if (votosListener) {
+                        votosListener.off();
+                        votosListener = null;
+                    }
+                    
+                    setTimeout(() => {
+                        if (currentQuestionId === pergunta.id) {
+                            document.getElementById('finishedContainer').style.display = 'none';
+                            document.getElementById('waitingContainer').style.display = 'block';
+                            currentQuestionId = null;
+                        }
+                    }, 4000);
+                }
+            });
+        }
+
+        function showToast(msg, type = "success") {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === "error" ? "error" : (type === "warning" ? "warning" : "")}`;
+            toast.textContent = msg;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2500);
+        }
+
+        async function logout() {
+            isClosing = true;
             const userId = sessionStorage.getItem('userId');
-            if (userId) await db.ref(`alunos/${userId}`).update({ online: false });
-            await auth.signOut();
+            if (userId && window.db) {
+                await window.db.ref(`alunos/${userId}`).update({ 
+                    online: false, 
+                    desconectadoEm: Date.now(),
+                    motivo: "logout_manual"
+                });
+            }
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            if (timerInterval) clearInterval(timerInterval);
+            if (votosListener) votosListener.off();
+            if (feedbackListener) feedbackListener.off();
+            await window.auth.signOut();
             sessionStorage.clear();
             window.location.href = "index.html";
-        };
+        }
 
-        auth.onAuthStateChanged(async (user) => {
-            if (!user) { window.location.href = "index.html"; return; }
-            currentUser = user;
+        window.addEventListener('beforeunload', async () => {
+            isClosing = true;
+            const userId = sessionStorage.getItem('userId');
+            if (userId && window.db) {
+                await window.db.ref(`alunos/${userId}`).update({ 
+                    online: false, 
+                    desconectadoEm: Date.now(),
+                    motivo: "pagina_fechada"
+                });
+            }
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            if (timerInterval) clearInterval(timerInterval);
+            if (votosListener) votosListener.off();
+            if (feedbackListener) feedbackListener.off();
+        });
+
+        // Inicialização
+        window.auth.onAuthStateChanged(async (user) => {
+            if (!user) {
+                window.location.href = "index.html";
+                return;
+            }
+            
             const userId = sessionStorage.getItem('userId');
             if (userId) {
-                await db.ref(`alunos/${userId}`).update({ online: true, ultimaAtividade: Date.now() });
-                window.addEventListener('beforeunload', () => db.ref(`alunos/${userId}`).update({ online: false }));
+                await window.db.ref(`alunos/${userId}`).update({ online: true, ultimaAtividade: Date.now() });
+                await iniciarHeartbeat();
             }
+            
             loadAlunoData();
-            listenToActiveQuestion();
+            listenToSessionStatus();
+            listenToQuestions();
+            listenToFeedback();
         });
     </script>
 </body>
