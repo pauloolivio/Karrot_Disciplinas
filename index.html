@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Karoot - Sistema de Quiz Interativo</title>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 500px;
+            background: transparent;
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .login-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .login-box {
+            background: rgba(255, 255, 255, 0.98);
+            border-radius: 24px;
+            padding: 35px 30px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: fadeInUp 0.6s ease;
+        }
+
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .login-header i {
+            font-size: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            margin-bottom: 12px;
+        }
+
+        .login-header h2 {
+            font-size: 28px;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+            font-weight: 700;
+        }
+
+        .login-header p {
+            color: #6b7280;
+            font-size: 14px;
+        }
+
+        .role-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .role-btn {
+            flex: 1;
+            padding: 14px;
+            border: 2px solid #e5e7eb;
+            background: white;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 16px;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .role-btn i {
+            font-size: 24px;
+            display: block;
+            margin-bottom: 8px;
+        }
+
+        .role-btn.active {
+            border-color: #667eea;
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            color: #667eea;
+        }
+
+        .role-btn.professor.active {
+            border-color: #ec489a;
+            background: linear-gradient(135deg, #ec489a15 0%, #f43f5e15 100%);
+            color: #ec489a;
+        }
+
+        .login-form {
+            display: none;
+            animation: fadeIn 0.4s ease;
+        }
+
+        .login-form.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #374151;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .form-group label i {
+            margin-right: 8px;
+            color: #667eea;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-bottom: 12px;
+            transition: all 0.3s;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .google-btn {
+            background: white;
+            color: #333;
+            border: 2px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .google-btn:hover {
+            background: #f8f9fa;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .google-btn i {
+            font-size: 18px;
+            color: #ea4335;
+        }
+
+        .divider {
+            text-align: center;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: "";
+            position: absolute;
+            top: 50%;
+            width: 44%;
+            height: 1px;
+            background: #e5e7eb;
+        }
+
+        .divider::before { left: 0; }
+        .divider::after { right: 0; }
+
+        .divider span {
+            background: white;
+            padding: 0 12px;
+            color: #9ca3af;
+            font-size: 12px;
+        }
+
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            text-align: center;
+            border-left: 3px solid #c33;
+        }
+
+        .info-message {
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 12px;
+            border-radius: 12px;
+            margin-top: 15px;
+            font-size: 13px;
+            text-align: center;
+            border-left: 3px solid #0369a1;
+        }
+
+        .info-message i {
+            margin-right: 8px;
+        }
+
+        .success-message {
+            background: #d1fae5;
+            color: #065f46;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 13px;
+            text-align: center;
+            border-left: 3px solid #10b981;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 480px) {
+            .login-box {
+                padding: 25px 20px;
+            }
+
+            .login-header h2 {
+                font-size: 24px;
+            }
+
+            .login-header i {
+                font-size: 48px;
+            }
+
+            .role-btn {
+                padding: 10px;
+                font-size: 14px;
+            }
+
+            .role-btn i {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <div class="login-container" id="loginContainer">
+            <div class="login-box">
+                <div class="login-header">
+                    <i class="fas fa-gamepad"></i>
+                    <h2>🎮 Karoot</h2>
+                    <p>Sistema de Quiz Interativo para Sala de Aula</p>
+                </div>
+
+                <div class="role-buttons">
+                    <div class="role-btn professor" onclick="selectRole('professor')">
+                        <i class="fas fa-chalkboard-user"></i>
+                        Professor
+                    </div>
+                    <div class="role-btn student" onclick="selectRole('student')">
+                        <i class="fas fa-user-graduate"></i>
+                        Aluno
+                    </div>
+                </div>
+
+                <div class="login-form" id="professorForm">
+                    <div class="form-group">
+                        <label><i class="fas fa-envelope"></i> Email Institucional</label>
+                        <input type="email" id="professorEmail" placeholder="professor@escola.com.br">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> Senha</label>
+                        <input type="password" id="professorPassword" placeholder="••••••••">
+                    </div>
+                    <button class="login-btn" onclick="loginProfessorEmail()">
+                        <i class="fas fa-sign-in-alt"></i> Entrar com Email
+                    </button>
+                    
+                    <div class="divider"><span>ou</span></div>
+                    
+                    <button class="login-btn google-btn" onclick="loginProfessorGoogle()">
+                        <i class="fab fa-google"></i> Entrar com Google
+                    </button>
+                    
+                    <div class="info-message">
+                        <i class="fas fa-shield-alt"></i> Acesso restrito a emails autorizados
+                    </div>
+                </div>
+
+                <div class="login-form" id="studentForm">
+                    <div class="form-group">
+                        <label><i class="fas fa-user"></i> Nome Completo</label>
+                        <input type="text" id="studentName" placeholder="Digite seu nome completo" autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fas fa-id-card"></i> RA (Registro Acadêmico)</label>
+                        <input type="text" id="studentRA" placeholder="Ex: 202400123" autocomplete="off">
+                    </div>
+                    <button class="login-btn" onclick="loginStudent()">
+                        <i class="fas fa-door-open"></i> Entrar na Sala
+                    </button>
+                    
+                    <div class="success-message">
+                        <i class="fas fa-check-circle"></i> Qualquer aluno pode entrar! Basta informar Nome e RA.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="firebase-config.js"></script>
+    <script>
+        // Lista de emails autorizados para professor
+        const emailsAutorizados = [
+            "paulooliviof@hotmail.com",
+            "pfilho@professores.utfor.edu.br"
+        ];
+
+        let currentRole = null;
+
+        window.selectRole = function(role) {
+            currentRole = role;
+            
+            document.querySelectorAll('.role-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.role-btn.${role}`).classList.add('active');
+            
+            document.getElementById('professorForm').classList.remove('active');
+            document.getElementById('studentForm').classList.remove('active');
+            
+            if (role === 'professor') {
+                document.getElementById('professorForm').classList.add('active');
+            } else {
+                document.getElementById('studentForm').classList.add('active');
+            }
+        };
+
+        async function isEmailAutorizado(email) {
+            try {
+                const docRef = firestore.collection("professoresAutorizados").doc(email.replace(/\./g, '_'));
+                const docSnap = await docRef.get();
+                if (docSnap.exists && docSnap.data().autorizado === true) {
+                    return true;
+                }
+            } catch(e) {
+                console.log("Erro ao verificar Firestore:", e);
+            }
+            return emailsAutorizados.includes(email);
+        }
+
+        function showError(formId, message) {
+            const form = document.getElementById(formId);
+            const existingError = form.querySelector('.error-message');
+            if (existingError) existingError.remove();
+            
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i> ${message}`;
+            form.insertBefore(errorDiv, form.firstChild);
+            
+            setTimeout(() => {
+                if (errorDiv) errorDiv.remove();
+            }, 4000);
+        }
+
+        window.loginProfessorEmail = async function() {
+            const email = document.getElementById('professorEmail').value.trim();
+            const password = document.getElementById('professorPassword').value;
+            
+            if (!email || !password) {
+                showError('professorForm', 'Preencha email e senha');
+                return;
+            }
+            
+            if (!await isEmailAutorizado(email)) {
+                showError('professorForm', '❌ Email não autorizado para acessar como professor');
+                return;
+            }
+            
+            try {
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<span class="loading"></span> Entrando...';
+                btn.disabled = true;
+                
+                await auth.signInWithEmailAndPassword(email, password);
+                
+                if (await isEmailAutorizado(email)) {
+                    sessionStorage.setItem('userRole', 'professor');
+                    sessionStorage.setItem('userEmail', email);
+                    window.location.href = "professor.html";
+                } else {
+                    await auth.signOut();
+                    showError('professorForm', '❌ Email não autorizado');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            } catch(error) {
+                let mensagem = "Erro ao fazer login";
+                if (error.code === 'auth/user-not-found') mensagem = "Usuário não encontrado";
+                else if (error.code === 'auth/wrong-password') mensagem = "Senha incorreta";
+                else if (error.code === 'auth/invalid-email') mensagem = "Email inválido";
+                showError('professorForm', mensagem);
+                const btn = event.target;
+                btn.innerHTML = '<i class="fas fa-envelope"></i> Entrar com Email';
+                btn.disabled = false;
+            }
+        };
+
+        window.loginProfessorGoogle = async function() {
+            try {
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<span class="loading"></span> Entrando...';
+                btn.disabled = true;
+                
+                const result = await auth.signInWithPopup(googleProvider);
+                const email = result.user.email;
+                
+                if (await isEmailAutorizado(email)) {
+                    sessionStorage.setItem('userRole', 'professor');
+                    sessionStorage.setItem('userEmail', email);
+                    window.location.href = "professor.html";
+                } else {
+                    await auth.signOut();
+                    showError('professorForm', '❌ Email não autorizado');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            } catch(error) {
+                showError('professorForm', 'Erro ao fazer login com Google');
+                const btn = event.target;
+                btn.innerHTML = '<i class="fab fa-google"></i> Entrar com Google';
+                btn.disabled = false;
+            }
+        };
+
+        window.loginStudent = async function() {
+            const nomeCompleto = document.getElementById('studentName').value.trim();
+            const ra = document.getElementById('studentRA').value.trim();
+            
+            if (!nomeCompleto) {
+                showError('studentForm', 'Por favor, digite seu nome completo');
+                return;
+            }
+            if (!ra) {
+                showError('studentForm', 'Por favor, digite seu RA');
+                return;
+            }
+            if (nomeCompleto.length < 3) {
+                showError('studentForm', 'Nome muito curto');
+                return;
+            }
+            if (ra.length < 3) {
+                showError('studentForm', 'RA inválido');
+                return;
+            }
+            
+            try {
+                const btn = event.target;
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<span class="loading"></span> Entrando...';
+                btn.disabled = true;
+                
+                const result = await auth.signInAnonymously();
+                const userId = result.user.uid;
+                
+                const alunoData = {
+                    nome: nomeCompleto,
+                    ra: ra,
+                    online: true,
+                    entrouEm: Date.now(),
+                    ultimaAtividade: Date.now()
+                };
+                
+                await db.ref(`alunos/${userId}`).set(alunoData);
+                
+                sessionStorage.setItem('userRole', 'aluno');
+                sessionStorage.setItem('userId', userId);
+                sessionStorage.setItem('alunoNome', nomeCompleto);
+                sessionStorage.setItem('alunoRA', ra);
+                
+                window.location.href = "aluno.html";
+            } catch(error) {
+                let mensagem = "Erro ao entrar na sala";
+                if (error.code === 'auth/operation-not-allowed') {
+                    mensagem = "Login anônimo não está habilitado no Firebase";
+                }
+                showError('studentForm', mensagem);
+                const btn = event.target;
+                btn.innerHTML = '<i class="fas fa-door-open"></i> Entrar na Sala';
+                btn.disabled = false;
+            }
+        };
+
+        selectRole('student');
+        
+        auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                const role = sessionStorage.getItem('userRole');
+                if (role === 'professor' && window.location.pathname.includes('index.html')) {
+                    window.location.href = "professor.html";
+                } else if (role === 'aluno' && window.location.pathname.includes('index.html')) {
+                    window.location.href = "aluno.html";
+                }
+            }
+        });
+    </script>
+</body>
+</html>
