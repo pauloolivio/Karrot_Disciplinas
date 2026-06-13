@@ -72,6 +72,10 @@
         .btn-disconnect:hover { background: #dc2626; }
         .btn-logout { background: #f3f4f6; color: #6b7280; }
         .btn-logout:hover { background: #fee; color: #ef4444; }
+        .btn-ranking { background: #8b5cf6; color: white; }
+        .btn-ranking:hover { background: #7c3aed; }
+        .btn-ranking-close { background: #6b7280; color: white; }
+        .btn-ranking-close:hover { background: #4b5563; }
         
         /* Filtros */
         .filtro-container {
@@ -372,6 +376,47 @@
             font-size: 12px;
             font-weight: 600;
         }
+
+        /* Modal de Ranking Preview */
+        .feedback-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            animation: fadeInModal 0.3s ease;
+        }
+        @keyframes fadeInModal {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        .feedback-modal-content {
+            background: white;
+            max-width: 500px;
+            width: 90%;
+            border-radius: 24px;
+            padding: 25px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .btn-fechar-feedback {
+            width: 100%;
+            padding: 12px;
+            background: #6b7280;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            margin-top: 15px;
+        }
+        .btn-fechar-feedback:hover { background: #4b5563; }
     </style>
 </head>
 <body>
@@ -385,6 +430,12 @@
                 </div>
             </div>
             <div class="btn-group">
+                <button class="btn-header btn-ranking" onclick="liberarRanking()">
+                    <i class="fas fa-trophy"></i> Liberar Ranking
+                </button>
+                <button class="btn-header btn-ranking-close" onclick="fecharRanking()">
+                    <i class="fas fa-eye-slash"></i> Fechar Ranking
+                </button>
                 <button class="btn-header btn-export" onclick="exportarDadosCompletos()">
                     <i class="fas fa-download"></i> Exportar JSON
                 </button>
@@ -692,6 +743,178 @@
                 hideLoading();
                 window.location.href = "index.html";
             }, 500);
+        }
+
+        // ============= FUNÇÕES DE RANKING =============
+        
+        async function liberarRanking() {
+            showLoading();
+            
+            try {
+                // Coletar dados de desempenho
+                const questoes = {};
+                const todasDisciplinas = window.getTodasDisciplinas();
+                for (const disciplina of todasDisciplinas) {
+                    const questoesDisciplina = window.getQuestoesPorDisciplina(disciplina);
+                    questoesDisciplina.forEach(q => {
+                        questoes[q.id] = {
+                            ...q,
+                            disciplina: disciplina
+                        };
+                    });
+                }
+                
+                const respostasRef = window.db.ref('respostas');
+                const respostasSnap = await respostasRef.once('value');
+                const respostas = respostasSnap.val() || {};
+                
+                const alunosRef = window.db.ref('alunos');
+                const alunosSnap = await alunosRef.once('value');
+                const alunos = alunosSnap.val() || {};
+                
+                // Calcular desempenho de cada aluno
+                const desempenhoAlunos = [];
+                
+                for (const [alunoId, alunoData] of Object.entries(alunos)) {
+                    if (!alunoData.online) continue;
+                    
+                    let acertos = 0;
+                    let total = 0;
+                    let somaPontuacao = 0;
+                    let questoesDetalhes = [];
+                    
+                    for (const [perguntaId, respostasPergunta] of Object.entries(respostas)) {
+                        if (respostasPergunta[alunoId]) {
+                            const resposta = respostasPergunta[alunoId];
+                            const questaoId = perguntaId.split('_')[0];
+                            const questao = questoes[parseInt(questaoId)];
+                            
+                            if (questao) {
+                                const isCorreta = resposta.letra === questao.correta;
+                                if (isCorreta) {
+                                    acertos++;
+                                    somaPontuacao += resposta.pontuacao || 0;
+                                }
+                                total++;
+                                
+                                questoesDetalhes.push({
+                                    questaoId: questaoId,
+                                    questaoTexto: questao.texto,
+                                    isCorreta: isCorreta,
+                                    pontuacao: resposta.pontuacao || 0,
+                                    tempoRestante: resposta.tempoRestante || 0
+                                });
+                            }
+                        }
+                    }
+                    
+                    // Pontuação final: acertos * 1000 + soma das pontuações (tempo)
+                    const pontuacaoFinal = (acertos * 1000) + somaPontuacao;
+                    
+                    desempenhoAlunos.push({
+                        id: alunoId,
+                        nome: alunoData.nome,
+                        ra: alunoData.ra,
+                        acertos: acertos,
+                        total: total,
+                        percentual: total > 0 ? ((acertos / total) * 100).toFixed(1) : 0,
+                        pontuacaoFinal: pontuacaoFinal,
+                        somaPontuacaoTempo: somaPontuacao,
+                        questoesDetalhes: questoesDetalhes
+                    });
+                }
+                
+                // Ordenar por pontuação final (decrescente)
+                desempenhoAlunos.sort((a, b) => b.pontuacaoFinal - a.pontuacaoFinal);
+                
+                // Adicionar posição no ranking
+                desempenhoAlunos.forEach((aluno, idx) => {
+                    aluno.posicao = idx + 1;
+                });
+                
+                // Salvar ranking no Firebase
+                await window.db.ref('ranking/atual').set({
+                    data: Date.now(),
+                    liberado: true,
+                    alunos: desempenhoAlunos,
+                    totalAlunos: desempenhoAlunos.length,
+                    melhorAluno: desempenhoAlunos[0] || null
+                });
+                
+                showToast(`🏆 Ranking liberado para os alunos! ${desempenhoAlunos.length} alunos no ranking.`);
+                
+                // Mostrar preview do ranking para o professor
+                mostrarPreviewRanking(desempenhoAlunos);
+                
+            } catch (error) {
+                console.error("Erro ao liberar ranking:", error);
+                showToast("Erro ao liberar ranking: " + error.message, "error");
+            } finally {
+                hideLoading();
+            }
+        }
+
+        function mostrarPreviewRanking(alunos) {
+            const modal = document.createElement('div');
+            modal.className = 'feedback-modal';
+            modal.style.zIndex = '4000';
+            
+            const medalhas = ['🥇', '🥈', '🥉'];
+            
+            modal.innerHTML = `
+                <div class="feedback-modal-content">
+                    <div style="text-align: center; margin-bottom: 20px;">
+                        <i class="fas fa-trophy" style="font-size: 50px; color: #f59e0b;"></i>
+                        <h2>🏆 Ranking do Campeonato</h2>
+                        <p>Liberado para os alunos!</p>
+                    </div>
+                    
+                    <div style="margin-bottom: 15px; padding: 10px; background: #f3f4f6; border-radius: 12px;">
+                        <div style="display: flex; justify-content: space-between; font-weight: bold; padding: 8px;">
+                            <span>#</span>
+                            <span>Nome</span>
+                            <span>Acertos</span>
+                            <span>Total</span>
+                            <span>⭐</span>
+                        </div>
+                        ${alunos.slice(0, 10).map(aluno => `
+                            <div style="display: flex; justify-content: space-between; padding: 8px; border-bottom: 1px solid #e5e7eb;">
+                                <span style="font-weight: bold; width: 50px;">${aluno.posicao} ${medalhas[aluno.posicao-1] || ''}</span>
+                                <span style="flex: 1;">${aluno.nome.split(' ')[0]}</span>
+                                <span style="width: 60px; text-align: center;">${aluno.acertos}</span>
+                                <span style="width: 60px; text-align: center;">${aluno.total}</span>
+                                <span style="width: 60px; text-align: center;">${aluno.percentual}%</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    ${alunos[0] ? `
+                        <div style="background: linear-gradient(135deg, #f59e0b20, #fbbf2420); border-radius: 16px; padding: 15px; margin-top: 15px;">
+                            <div style="text-align: center;">
+                                <i class="fas fa-crown" style="font-size: 30px; color: #f59e0b;"></i>
+                                <h3>🏆 CAMPEÃO 🏆</h3>
+                                <p style="font-size: 18px; font-weight: bold;">${alunos[0].nome}</p>
+                                <p>${alunos[0].acertos}/${alunos[0].total} acertos (${alunos[0].percentual}%)</p>
+                                <small>Pontuação final: ${alunos[0].pontuacaoFinal.toFixed(4)}</small>
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <button class="btn-fechar-feedback" onclick="this.closest('.feedback-modal').remove()">
+                        Fechar Preview
+                    </button>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+        }
+
+        async function fecharRanking() {
+            await window.db.ref('ranking/atual').set({
+                liberado: false,
+                data: Date.now()
+            });
+            showToast("Ranking fechado para os alunos");
         }
 
         // ============= FUNÇÕES DE QUESTÕES =============
@@ -1172,6 +1395,8 @@
         window.exportarDadosCompletos = exportarDadosCompletos;
         window.analisarDesempenho = analisarDesempenho;
         window.limparDadosRapido = limparDadosRapido;
+        window.liberarRanking = liberarRanking;
+        window.fecharRanking = fecharRanking;
         
         // Inicialização
         window.auth.onAuthStateChanged(async (user) => {

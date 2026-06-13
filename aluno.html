@@ -71,7 +71,7 @@
         .waiting-container {
             background: white;
             border-radius: 24px;
-            padding: 50px 25px;
+            padding: 40px 25px;
             text-align: center;
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
@@ -251,7 +251,106 @@
             100% { opacity: 1; transform: scale(1); }
         }
         
-        /* Modal de Feedback - COM ACERTO/ERRO */
+        /* Ranking Container - Agora visível permanentemente abaixo */
+        .ranking-permanente {
+            background: white;
+            border-radius: 24px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        .ranking-permanente-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .ranking-permanente-header h3 {
+            font-size: 18px;
+            color: #1f2937;
+        }
+        .ranking-permanente-header i {
+            color: #f59e0b;
+            font-size: 20px;
+        }
+        .ranking-sem-dados {
+            text-align: center;
+            padding: 30px;
+            color: #9ca3af;
+        }
+        .ranking-sem-dados i {
+            font-size: 40px;
+            margin-bottom: 10px;
+            color: #d1d5db;
+        }
+        .ranking-lista {
+            max-height: 350px;
+            overflow-y: auto;
+        }
+        .ranking-item-permanente {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            border-bottom: 1px solid #f3f4f6;
+        }
+        .ranking-position-permanente {
+            width: 36px;
+            height: 36px;
+            background: #f3f4f6;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .ranking-position-permanente.top-1 { background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; }
+        .ranking-position-permanente.top-2 { background: linear-gradient(135deg, #94a3b8, #cbd5e1); color: white; }
+        .ranking-position-permanente.top-3 { background: linear-gradient(135deg, #b45309, #d97706); color: white; }
+        .ranking-info-permanente {
+            flex: 1;
+        }
+        .ranking-name-permanente {
+            font-weight: 600;
+            font-size: 14px;
+            color: #1f2937;
+        }
+        .ranking-stats-permanente {
+            font-size: 11px;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+        .ranking-score-permanente {
+            text-align: right;
+        }
+        .ranking-percent-permanente {
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .ranking-percent-permanente.high { color: #10b981; }
+        .ranking-percent-permanente.medium { color: #f59e0b; }
+        .ranking-percent-permanente.low { color: #ef4444; }
+        .meu-ranking-permanente {
+            background: #e0f2fe;
+            border-radius: 12px;
+            margin: 8px 0;
+            padding: 10px;
+            border-left: 4px solid #0284c7;
+        }
+        .badge-campeao {
+            background: #fef3c7;
+            color: #d97706;
+            padding: 2px 8px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        
+        /* Modal de Feedback */
         .feedback-modal {
             position: fixed;
             top: 0;
@@ -462,6 +561,20 @@
             <h3 style="margin-top: 10px;">Sessão Encerrada!</h3>
             <p>O professor encerrou a sessão. Você será redirecionado...</p>
         </div>
+
+        <!-- RANKING PERMANENTE - SEMPRE VISÍVEL ABAIXO -->
+        <div class="ranking-permanente" id="rankingPermanente">
+            <div class="ranking-permanente-header">
+                <h3><i class="fas fa-trophy"></i> 🏆 Ranking do Campeonato</h3>
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div id="rankingPermanenteContent">
+                <div class="ranking-sem-dados">
+                    <i class="fas fa-hourglass-half"></i>
+                    <p>Aguardando o professor liberar o ranking...</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -473,6 +586,7 @@
         let feedbackListener = null;
         let aguardandoResposta = false;
         let questoesRespondidas = new Set();
+        let currentTimerValue = 0;
         
         // Armazenar a resposta do aluno para cada questão
         let minhasRespostas = new Map();
@@ -480,6 +594,7 @@
         // Referências para listeners
         let alunosListener = null;
         let respostasListener = null;
+        let rankingListener = null;
         let totalAlunosNaSala = 0;
 
         function loadAlunoData() {
@@ -580,23 +695,7 @@
             });
         }
 
-        function createAlternatives(alternativas) {
-            const grid = document.getElementById('alternativasGrid');
-            grid.innerHTML = '';
-            const letras = ['A', 'B', 'C', 'D'];
-            letras.forEach(letra => {
-                const btn = document.createElement('button');
-                btn.className = 'alternativa-btn';
-                btn.innerHTML = `
-                    <div class="alternativa-letra">${letra}</div>
-                    <div class="alternativa-texto">${alternativas[letra] || ''}</div>
-                `;
-                btn.onclick = () => submitAnswer(letra);
-                if (hasAnswered) btn.classList.add('disabled');
-                grid.appendChild(btn);
-            });
-        }
-
+        // ============= FUNÇÃO DE RESPOSTA COM PONTUAÇÃO =============
         async function submitAnswer(letra) {
             if (hasAnswered) {
                 showToast("Você já respondeu!", "warning");
@@ -605,6 +704,13 @@
             
             const userId = sessionStorage.getItem('userId');
             if (!userId || !currentQuestionId) return;
+            
+            // Calcular tempo restante para pontuação
+            let tempoRestante = currentTimerValue;
+            
+            // Pontuação = tempo restante + pequena fração aleatória para evitar empates
+            const tempoPreciso = tempoRestante + (Math.random() * 0.0001);
+            const pontuacao = parseFloat(tempoPreciso.toFixed(4));
             
             hasAnswered = true;
             aguardandoResposta = false;
@@ -624,14 +730,16 @@
                     letra: letra,
                     timestamp: Date.now(),
                     nome: sessionStorage.getItem('alunoNome'),
-                    ra: sessionStorage.getItem('alunoRA')
+                    ra: sessionStorage.getItem('alunoRA'),
+                    pontuacao: pontuacao,
+                    tempoRestante: tempoRestante
                 });
                 
                 questoesRespondidas.add(currentQuestionId);
                 
                 await window.db.ref(`votos/${currentQuestionId}/${letra}`).transaction(current => (current || 0) + 1);
                 
-                showToast(`✅ Você respondeu ${letra}!`);
+                showToast(`✅ Você respondeu ${letra}! (Pontuação: ${pontuacao.toFixed(4)})`);
                 
                 await atualizarStatusRespostas();
                 
@@ -651,14 +759,33 @@
             }
         }
 
+        function createAlternatives(alternativas) {
+            const grid = document.getElementById('alternativasGrid');
+            grid.innerHTML = '';
+            const letras = ['A', 'B', 'C', 'D'];
+            letras.forEach(letra => {
+                const btn = document.createElement('button');
+                btn.className = 'alternativa-btn';
+                btn.innerHTML = `
+                    <div class="alternativa-letra">${letra}</div>
+                    <div class="alternativa-texto">${alternativas[letra] || ''}</div>
+                `;
+                btn.onclick = () => submitAnswer(letra);
+                if (hasAnswered) btn.classList.add('disabled');
+                grid.appendChild(btn);
+            });
+        }
+
         function startTimer(segundos) {
             if (timerInterval) clearInterval(timerInterval);
             
             let timeLeft = segundos;
+            currentTimerValue = segundos;
             const timerText = document.getElementById('timerText');
             
             function update() {
                 timerText.textContent = timeLeft;
+                currentTimerValue = timeLeft;
                 
                 if (timeLeft <= 0) {
                     clearInterval(timerInterval);
@@ -687,9 +814,10 @@
             
             hasAnswered = false;
             aguardandoResposta = false;
+            currentTimerValue = 0;
         }
 
-        // FUNÇÃO DE FEEDBACK MELHORADA - Mostra se acertou ou errou
+        // ============= FUNÇÃO DE FEEDBACK =============
         async function mostrarFeedback(feedback, feedbackId) {
             const userId = sessionStorage.getItem('userId');
             const questaoId = feedback.questaoId;
@@ -775,7 +903,7 @@
             
             document.body.appendChild(modal);
             
-            // Som de notificação (diferente para acerto/erro)
+            // Som de notificação
             try {
                 let somUrl = acertou ? 
                     'https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3' : 
@@ -816,6 +944,105 @@
             });
         }
 
+        // ============= FUNÇÃO DE RANKING PERMANENTE =============
+        function listenToRanking() {
+            if (rankingListener) {
+                rankingListener.off();
+            }
+            
+            rankingListener = window.db.ref('ranking/atual').on('value', (snapshot) => {
+                const ranking = snapshot.val();
+                
+                if (ranking && ranking.liberado === true && ranking.alunos) {
+                    atualizarRankingPermanente(ranking);
+                } else {
+                    // Mostrar mensagem de aguardando
+                    const container = document.getElementById('rankingPermanenteContent');
+                    container.innerHTML = `
+                        <div class="ranking-sem-dados">
+                            <i class="fas fa-hourglass-half"></i>
+                            <p>Aguardando o professor liberar o ranking...</p>
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        function atualizarRankingPermanente(ranking) {
+            const userId = sessionStorage.getItem('userId');
+            const medalhas = ['🥇', '🥈', '🥉'];
+            
+            const container = document.getElementById('rankingPermanenteContent');
+            
+            if (!ranking.alunos || ranking.alunos.length === 0) {
+                container.innerHTML = `
+                    <div class="ranking-sem-dados">
+                        <i class="fas fa-chart-simple"></i>
+                        <p>Nenhum dado de desempenho ainda...</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Ranking já vem ordenado do professor (do melhor para o pior)
+            const alunosOrdenados = ranking.alunos;
+            
+            let html = `
+                <div class="ranking-lista">
+                    <div style="display: flex; justify-content: space-between; padding: 8px 10px; font-size: 11px; color: #9ca3af; border-bottom: 1px solid #e5e7eb;">
+                        <span>POSIÇÃO</span>
+                        <span>ALUNO</span>
+                        <span>DESEMPENHO</span>
+                    </div>
+            `;
+            
+            alunosOrdenados.forEach(aluno => {
+                const isMe = aluno.id === userId;
+                const percentualNum = parseFloat(aluno.percentual);
+                let percentClass = '';
+                if (percentualNum >= 70) percentClass = 'high';
+                else if (percentualNum >= 40) percentClass = 'medium';
+                else percentClass = 'low';
+                
+                let posClass = '';
+                if (aluno.posicao === 1) posClass = 'top-1';
+                else if (aluno.posicao === 2) posClass = 'top-2';
+                else if (aluno.posicao === 3) posClass = 'top-3';
+                
+                const nomeExibido = aluno.nome.length > 20 ? aluno.nome.substring(0, 18) + '...' : aluno.nome;
+                
+                html += `
+                    <div class="${isMe ? 'meu-ranking-permanente' : 'ranking-item-permanente'}">
+                        <div class="ranking-position-permanente ${posClass}">
+                            ${aluno.posicao === 1 ? '🥇' : aluno.posicao === 2 ? '🥈' : aluno.posicao === 3 ? '🥉' : aluno.posicao}
+                        </div>
+                        <div class="ranking-info-permanente">
+                            <div class="ranking-name-permanente">
+                                ${nomeExibido}
+                                ${isMe ? '<span class="badge-campeao"><i class="fas fa-star"></i> Você</span>' : ''}
+                                ${aluno.posicao === 1 && !isMe ? '<span class="badge-campeao"><i class="fas fa-crown"></i> Líder</span>' : ''}
+                            </div>
+                            <div class="ranking-stats-permanente">${aluno.acertos}/${aluno.total} acertos</div>
+                        </div>
+                        <div class="ranking-score-permanente">
+                            <div class="ranking-percent-permanente ${percentClass}">${aluno.percentual}%</div>
+                            <div class="ranking-stats-permanente">⭐ ${aluno.pontuacaoFinal.toFixed(2)}</div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += `
+                    <div style="text-align: center; padding: 12px; font-size: 11px; color: #9ca3af; border-top: 1px solid #e5e7eb; margin-top: 8px;">
+                        <i class="fas fa-chart-line"></i> Atualizado em ${new Date(ranking.data).toLocaleTimeString()}
+                    </div>
+                </div>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        // ============= FUNÇÕES DE SESSÃO =============
         function listenToSessionStatus() {
             const statusRef = window.db.ref('sessao/status');
             
@@ -833,6 +1060,7 @@
                     if (feedbackListener) feedbackListener.off();
                     if (alunosListener) alunosListener.off();
                     if (respostasListener) respostasListener.off();
+                    if (rankingListener) rankingListener.off();
                     
                     const userId = sessionStorage.getItem('userId');
                     if (userId && window.db) {
@@ -919,6 +1147,7 @@
             });
         }
 
+        // ============= FUNÇÕES DE UTILITÁRIO =============
         function showToast(msg, type = "success") {
             const toast = document.createElement('div');
             toast.className = `toast ${type === "error" ? "error" : (type === "warning" ? "warning" : "")}`;
@@ -965,6 +1194,7 @@
             if (feedbackListener && feedbackListener.off) feedbackListener.off();
             if (alunosListener && alunosListener.off) alunosListener.off();
             if (respostasListener && respostasListener.off) respostasListener.off();
+            if (rankingListener && rankingListener.off) rankingListener.off();
             
             try {
                 await window.auth.signOut();
@@ -990,7 +1220,7 @@
             }
         });
 
-        // Inicialização
+        // ============= INICIALIZAÇÃO =============
         window.auth.onAuthStateChanged(async (user) => {
             if (!user) {
                 window.location.href = "index.html";
@@ -1017,8 +1247,10 @@
             listenToSessionStatus();
             listenToQuestions();
             listenToFeedback();
+            listenToRanking(); // Inicia o listener do ranking
         });
         
+        // Expor funções globais
         window.confirmarLogout = confirmarLogout;
     </script>
 </body>
