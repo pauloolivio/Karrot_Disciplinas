@@ -30,7 +30,6 @@
             margin: 0 auto;
         }
 
-        /* Header do Dashboard */
         .dashboard-header {
             background: rgba(255,255,255,0.95);
             border-radius: 20px;
@@ -107,14 +106,12 @@
             font-size: 12px;
         }
 
-        /* Grid Principal */
         .dashboard-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 20px;
         }
 
-        /* Card padrão */
         .card {
             background: white;
             border-radius: 24px;
@@ -141,7 +138,6 @@
             color: #667eea;
         }
 
-        /* Questão Ativa */
         .questao-ativa {
             grid-column: span 2;
         }
@@ -201,6 +197,11 @@
             border-left: 5px solid #667eea;
         }
 
+        .alt-dashboard.correta {
+            border-left-color: #10b981;
+            background: #d1fae5;
+        }
+
         .alt-letra {
             font-weight: bold;
             font-size: 18px;
@@ -208,12 +209,108 @@
             margin-bottom: 5px;
         }
 
+        .alt-dashboard.correta .alt-letra {
+            color: #10b981;
+        }
+
         .alt-texto {
             font-size: 16px;
             color: #374151;
         }
 
-        /* Estatísticas da Questão */
+        /* Tela de Resultado (igual ao aluno) */
+        .resultado-questao {
+            text-align: center;
+        }
+
+        .resultado-header {
+            background: linear-gradient(135deg, #10b981, #059669);
+            padding: 20px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            color: white;
+        }
+
+        .resultado-header i {
+            font-size: 50px;
+            margin-bottom: 10px;
+        }
+
+        .resultado-header h2 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .resultado-stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .resultado-stat {
+            text-align: center;
+            padding: 15px 25px;
+            background: #f3f4f6;
+            border-radius: 20px;
+        }
+
+        .resultado-stat .numero {
+            font-size: 32px;
+            font-weight: bold;
+        }
+
+        .resultado-stat .label {
+            font-size: 12px;
+            color: #6b7280;
+        }
+
+        .resultado-stat.acertos .numero {
+            color: #10b981;
+        }
+
+        .resultado-stat.percentual .numero {
+            color: #667eea;
+        }
+
+        .resposta-correta-box {
+            background: #d1fae5;
+            padding: 20px;
+            border-radius: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .resposta-correta-box h3 {
+            color: #065f46;
+            margin-bottom: 10px;
+        }
+
+        .resposta-correta-box .resposta-texto {
+            font-size: 18px;
+            font-weight: bold;
+            color: #065f46;
+        }
+
+        .explicacao-box {
+            background: #fef3c7;
+            padding: 20px;
+            border-radius: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+
+        .explicacao-box h3 {
+            color: #92400e;
+            margin-bottom: 10px;
+        }
+
+        .explicacao-box p {
+            color: #78350f;
+            line-height: 1.5;
+        }
+
         .stats-questao {
             display: flex;
             justify-content: center;
@@ -238,7 +335,6 @@
             color: #6b7280;
         }
 
-        /* Gráfico de Respostas */
         .grafico-respostas {
             margin-top: 20px;
         }
@@ -248,7 +344,6 @@
             width: 100%;
         }
 
-        /* Ranking */
         .ranking-list {
             max-height: 500px;
             overflow-y: auto;
@@ -334,7 +429,6 @@
             color: #d1d5db;
         }
 
-        /* Lista de Alunos Online */
         .alunos-online-list {
             display: flex;
             flex-wrap: wrap;
@@ -364,7 +458,6 @@
             color: #9ca3af;
         }
 
-        /* Footer */
         .dashboard-footer {
             margin-top: 20px;
             text-align: center;
@@ -373,7 +466,6 @@
             font-size: 12px;
         }
 
-        /* Responsivo */
         @media (max-width: 900px) {
             .dashboard-grid {
                 grid-template-columns: 1fr;
@@ -389,7 +481,6 @@
             }
         }
 
-        /* Animações */
         @keyframes pulse {
             0% { opacity: 1; transform: scale(1); }
             50% { opacity: 0.7; transform: scale(1.02); }
@@ -398,6 +489,21 @@
 
         .timer-warning {
             animation: pulse 1s infinite;
+        }
+
+        .resultado-enter {
+            animation: slideIn 0.4s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
     </style>
 </head>
@@ -424,11 +530,10 @@
         </div>
 
         <div class="dashboard-grid">
-            <!-- Questão Ativa (ocupa 2 colunas) -->
             <div class="card questao-ativa" id="questaoCard">
                 <div class="card-header">
-                    <h2><i class="fas fa-question-circle"></i> Questão Atual</h2>
-                    <i class="fas fa-hourglass-half"></i>
+                    <h2><i class="fas fa-question-circle"></i> <span id="questaoCardTitle">Questão Atual</span></h2>
+                    <i class="fas fa-hourglass-half" id="questaoCardIcon"></i>
                 </div>
                 <div id="questaoContent">
                     <div class="nenhuma-questao">
@@ -439,7 +544,6 @@
                 </div>
             </div>
 
-            <!-- Gráfico de Respostas da Questão Atual -->
             <div class="card">
                 <div class="card-header">
                     <h2><i class="fas fa-chart-pie"></i> Respostas da Turma</h2>
@@ -469,7 +573,6 @@
                 </div>
             </div>
 
-            <!-- Ranking do Campeonato -->
             <div class="card">
                 <div class="card-header">
                     <h2><i class="fas fa-trophy"></i> 🏆 Ranking do Campeonato</h2>
@@ -483,7 +586,6 @@
                 </div>
             </div>
 
-            <!-- Alunos Online -->
             <div class="card">
                 <div class="card-header">
                     <h2><i class="fas fa-users"></i> Alunos Conectados</h2>
@@ -510,15 +612,134 @@
         let alunosListener = null;
         let questaoListener = null;
         let respostasListener = null;
+        let timerInterval = null;
+        let ultimaPerguntaAtiva = null;
+        let questaoFinalizada = false;
 
-        // ============= FUNÇÕES DE ATUALIZAÇÃO =============
+        // Função para exibir o resultado da questão (tela de discussão)
+        function exibirResultadoQuestao(pergunta, respostas) {
+            console.log("Exibindo resultado da questão:", pergunta?.id);
+            
+            const container = document.getElementById('questaoContent');
+            const titleElement = document.getElementById('questaoCardTitle');
+            const iconElement = document.getElementById('questaoCardIcon');
+            
+            titleElement.innerHTML = '<i class="fas fa-chalkboard-user"></i> Resultado da Questão';
+            iconElement.className = 'fas fa-chart-line';
+            
+            // Calcular estatísticas
+            const totalRespostas = Object.keys(respostas || {}).length;
+            let contagemRespostas = { A: 0, B: 0, C: 0, D: 0 };
+            let acertos = 0;
+            
+            if (respostas) {
+                Object.values(respostas).forEach(r => {
+                    if (r.letra && contagemRespostas[r.letra] !== undefined) {
+                        contagemRespostas[r.letra]++;
+                        if (r.letra === pergunta.correta) {
+                            acertos++;
+                        }
+                    }
+                });
+            }
+            
+            const percentualAcerto = totalRespostas > 0 ? ((acertos / totalRespostas) * 100).toFixed(1) : 0;
+            const respostaCorretaTexto = pergunta.alternativas[pergunta.correta] || '';
+            
+            // Gerar estatísticas de cada alternativa
+            let alternativasStats = '';
+            const letras = ['A', 'B', 'C', 'D'];
+            letras.forEach(letra => {
+                const qtd = contagemRespostas[letra];
+                const percentual = totalRespostas > 0 ? ((qtd / totalRespostas) * 100).toFixed(1) : 0;
+                const isCorreta = (letra === pergunta.correta);
+                alternativasStats += `
+                    <div class="alt-dashboard ${isCorreta ? 'correta' : ''}" style="margin-bottom: 10px;">
+                        <div class="alt-letra">${letra}) ${isCorreta ? '✓ CORRETA' : ''}</div>
+                        <div class="alt-texto">${pergunta.alternativas[letra]}</div>
+                        <div style="margin-top: 8px; font-size: 13px; color: #6b7280;">
+                            ${qtd} aluno(s) (${percentual}%)
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = `
+                <div class="resultado-questao resultado-enter">
+                    <div class="resultado-header">
+                        <i class="fas fa-check-circle"></i>
+                        <h2>📊 Questão Finalizada!</h2>
+                        <p>Hora de discutir os resultados com a turma</p>
+                    </div>
+                    
+                    <div class="resultado-stats">
+                        <div class="resultado-stat">
+                            <div class="numero">${totalRespostas}</div>
+                            <div class="label">Alunos que responderam</div>
+                        </div>
+                        <div class="resultado-stat acertos">
+                            <div class="numero">${acertos}</div>
+                            <div class="label">Acertaram</div>
+                        </div>
+                        <div class="resultado-stat percentual">
+                            <div class="numero">${percentualAcerto}%</div>
+                            <div class="label">Taxa de acerto</div>
+                        </div>
+                    </div>
+                    
+                    <div class="resposta-correta-box">
+                        <h3><i class="fas fa-check-circle"></i> Resposta Correta</h3>
+                        <div class="resposta-texto">${pergunta.correta}) ${respostaCorretaTexto}</div>
+                    </div>
+                    
+                    <div class="explicacao-box">
+                        <h3><i class="fas fa-chalkboard"></i> Explicação / Gabarito Comentado</h3>
+                        <p>${pergunta.explicacao || 'A resposta correta é a alternativa ' + pergunta.correta + '. Utilize este momento para discutir com os alunos o raciocínio correto e esclarecer dúvidas.'}</p>
+                    </div>
+                    
+                    <h4 style="text-align: left; margin: 20px 0 10px 0; color: #374151;">
+                        <i class="fas fa-chart-simple"></i> Distribuição das Respostas
+                    </h4>
+                    <div id="alternativasDetalhadas">
+                        ${alternativasStats}
+                    </div>
+                    
+                    <div style="margin-top: 20px; text-align: center; padding: 15px; background: #f3f4f6; border-radius: 16px;">
+                        <i class="fas fa-lightbulb"></i> 
+                        <strong>Momento de discussão:</strong> Analise com a turma os pontos positivos e as dificuldades encontradas.
+                    </div>
+                </div>
+            `;
+            
+            // Atualizar estatísticas no card ao lado
+            document.getElementById('totalResponderam').textContent = totalRespostas;
+            document.getElementById('totalAcertos').textContent = acertos;
+            document.getElementById('percentualAcerto').textContent = percentualAcerto + '%';
+            document.getElementById('statsRespostas').style.display = 'block';
+            
+            // Atualizar gráfico
+            atualizarGrafico(respostas, pergunta);
+        }
 
         function atualizarQuestao(pergunta) {
             const container = document.getElementById('questaoContent');
             const graficoContainer = document.getElementById('graficoContent');
             const statsDiv = document.getElementById('statsRespostas');
+            const titleElement = document.getElementById('questaoCardTitle');
+            const iconElement = document.getElementById('questaoCardIcon');
             
+            console.log("Atualizando questão:", pergunta);
+            
+            // Caso 1: Tem uma questão ATIVA
             if (pergunta && pergunta.ativa === true) {
+                questaoFinalizada = false;
+                titleElement.innerHTML = '<i class="fas fa-question-circle"></i> Questão Atual';
+                iconElement.className = 'fas fa-hourglass-half';
+                
+                // Salvar a pergunta atual para uso futuro
+                ultimaPerguntaAtiva = pergunta;
+                questaoAtualId = pergunta.id;
+                
                 // Mostrar questão
                 container.innerHTML = `
                     <div class="questao-content">
@@ -539,11 +760,11 @@
                 `;
                 
                 // Iniciar contagem regressiva do timer
-                if (window.timerInterval) clearInterval(window.timerInterval);
+                if (timerInterval) clearInterval(timerInterval);
                 let tempoRestante = pergunta.tempoLimite;
                 const timerElement = document.getElementById('timerGrande');
                 
-                window.timerInterval = setInterval(() => {
+                timerInterval = setInterval(() => {
                     tempoRestante--;
                     if (timerElement) {
                         timerElement.textContent = tempoRestante;
@@ -551,8 +772,11 @@
                             timerElement.style.color = '#ef4444';
                         }
                     }
+                    // Quando o tempo acabar, finalizar a questão automaticamente
                     if (tempoRestante <= 0) {
-                        clearInterval(window.timerInterval);
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                        // Não finalizar aqui, aguardar o Firebase atualizar
                     }
                 }, 1000);
                 
@@ -564,17 +788,40 @@
                 `;
                 statsDiv.style.display = 'block';
                 
-                // Iniciar listener de respostas para esta questão
+                // Listener de respostas em tempo real
                 if (respostasListener) respostasListener.off();
                 respostasListener = window.db.ref(`respostas/${pergunta.id}`).on('value', (snapshot) => {
                     const respostas = snapshot.val() || {};
                     atualizarGrafico(respostas, pergunta);
                     atualizarEstatisticas(respostas, pergunta);
                 });
+            } 
+            // Caso 2: Questão foi finalizada (ativa === false) E temos uma pergunta anterior salva
+            else if (pergunta && pergunta.ativa === false && pergunta.id === questaoAtualId && ultimaPerguntaAtiva && !questaoFinalizada) {
+                console.log("Questão finalizada! Exibindo resultado...");
+                questaoFinalizada = true;
                 
+                // Parar o timer
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+                
+                // Buscar as respostas finais e exibir o resultado
+                window.db.ref(`respostas/${pergunta.id}`).once('value', (snapshot) => {
+                    const respostas = snapshot.val() || {};
+                    exibirResultadoQuestao(ultimaPerguntaAtiva, respostas);
+                });
+            }
+            // Caso 3: Nova questão (diferente da anterior) - resetar estado
+            else if (pergunta && pergunta.id !== questaoAtualId && pergunta.ativa === true) {
+                questaoFinalizada = false;
                 questaoAtualId = pergunta.id;
-                
-            } else {
+                ultimaPerguntaAtiva = pergunta;
+            }
+            // Caso 4: Sem questão ativa
+            else if (!pergunta) {
+                questaoFinalizada = false;
                 container.innerHTML = `
                     <div class="nenhuma-questao">
                         <i class="fas fa-hourglass-half"></i>
@@ -590,8 +837,14 @@
                 `;
                 statsDiv.style.display = 'none';
                 
-                if (window.timerInterval) clearInterval(window.timerInterval);
-                if (respostasListener) respostasListener.off();
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+                if (respostasListener) {
+                    respostasListener.off();
+                    respostasListener = null;
+                }
                 questaoAtualId = null;
             }
         }
@@ -649,7 +902,7 @@
                         y: {
                             beginAtZero: true,
                             title: { display: true, text: 'Quantidade de Alunos' },
-                            ticks: { stepSize: 1 }
+                            ticks: { stepSize: 1, precision: 0 }
                         }
                     }
                 }
@@ -669,21 +922,24 @@
             const acertos = contagem[pergunta.correta];
             const percentual = total > 0 ? ((acertos / total) * 100).toFixed(1) : 0;
             
-            document.getElementById('totalResponderam').textContent = total;
-            document.getElementById('totalAcertos').textContent = acertos;
-            document.getElementById('percentualAcerto').textContent = percentual + '%';
+            const totalElem = document.getElementById('totalResponderam');
+            const acertosElem = document.getElementById('totalAcertos');
+            const percentualElem = document.getElementById('percentualAcerto');
+            
+            if (totalElem) totalElem.textContent = total;
+            if (acertosElem) acertosElem.textContent = acertos;
+            if (percentualElem) percentualElem.textContent = percentual + '%';
         }
 
         function atualizarRanking() {
             const container = document.getElementById('rankingContent');
+            if (!container) return;
             
             window.db.ref('ranking/atual').once('value', (snapshot) => {
                 const ranking = snapshot.val();
                 
                 if (ranking && ranking.liberado === true && ranking.alunos && ranking.alunos.length > 0) {
                     const alunos = ranking.alunos;
-                    const medalhas = ['🥇', '🥈', '🥉'];
-                    
                     let html = `<div class="ranking-list">`;
                     
                     alunos.forEach(aluno => {
@@ -741,9 +997,11 @@
                 const alunos = snapshot.val() || {};
                 const online = Object.values(alunos).filter(a => a.online === true);
                 
-                document.getElementById('totalAlunosOnline').textContent = online.length;
+                const totalElem = document.getElementById('totalAlunosOnline');
+                if (totalElem) totalElem.textContent = online.length;
                 
                 const container = document.getElementById('alunosOnlineContent');
+                if (!container) return;
                 
                 if (online.length > 0) {
                     container.innerHTML = `
@@ -785,20 +1043,16 @@
             });
         }
 
-        // ============= INICIALIZAÇÃO =============
-        
         function init() {
             listenToQuestao();
             listenToRanking();
             atualizarAlunosOnline();
             
-            // Atualizar ranking a cada 10 segundos mesmo sem mudança
             setInterval(() => {
                 atualizarRanking();
             }, 10000);
         }
 
-        // Iniciar quando o Firebase estiver pronto
         if (window.db) {
             init();
         } else {
