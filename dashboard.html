@@ -218,7 +218,7 @@
             color: #374151;
         }
 
-        /* Tela de Resultado (igual ao aluno) */
+        /* Tela de Resultado */
         .resultado-questao {
             text-align: center;
         }
@@ -309,6 +309,27 @@
         .explicacao-box p {
             color: #78350f;
             line-height: 1.5;
+        }
+
+        .btn-fechar-resultado {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 35px;
+            border-radius: 40px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn-fechar-resultado:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
         }
 
         .stats-questao {
@@ -505,6 +526,10 @@
                 transform: translateY(0);
             }
         }
+
+        .hidden-resultado {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -614,11 +639,69 @@
         let respostasListener = null;
         let timerInterval = null;
         let ultimaPerguntaAtiva = null;
-        let questaoFinalizada = false;
+        let resultadoAtivo = false;
+        let resultadoPerguntaId = null;
+        let resultadoRespostas = null;
+
+        // Função para fechar o resultado e voltar ao aguardo
+        function fecharResultado() {
+            console.log("Fechando resultado...");
+            resultadoAtivo = false;
+            resultadoPerguntaId = null;
+            resultadoRespostas = null;
+            
+            const container = document.getElementById('questaoContent');
+            const titleElement = document.getElementById('questaoCardTitle');
+            const iconElement = document.getElementById('questaoCardIcon');
+            const graficoContainer = document.getElementById('graficoContent');
+            const statsDiv = document.getElementById('statsRespostas');
+            
+            titleElement.innerHTML = '<i class="fas fa-question-circle"></i> Questão Atual';
+            iconElement.className = 'fas fa-hourglass-half';
+            
+            container.innerHTML = `
+                <div class="nenhuma-questao">
+                    <i class="fas fa-hourglass-half"></i>
+                    <h3>Aguardando Próxima Questão</h3>
+                    <p>O professor irá iniciar uma nova questão em breve...</p>
+                </div>
+            `;
+            
+            graficoContainer.innerHTML = `
+                <div class="nenhuma-questao" style="padding: 20px;">
+                    <i class="fas fa-chart-simple"></i>
+                    <p>Aguardando questão para exibir gráfico</p>
+                </div>
+            `;
+            statsDiv.style.display = 'none';
+            
+            // Limpar o gráfico
+            if (graficoRespostas) {
+                graficoRespostas.destroy();
+                graficoRespostas = null;
+            }
+            
+            // Limpar listeners antigos
+            if (respostasListener) {
+                respostasListener.off();
+                respostasListener = null;
+            }
+            
+            questaoAtualId = null;
+        }
 
         // Função para exibir o resultado da questão (tela de discussão)
         function exibirResultadoQuestao(pergunta, respostas) {
             console.log("Exibindo resultado da questão:", pergunta?.id);
+            
+            // Se já está mostrando o resultado da mesma questão, não recriar
+            if (resultadoAtivo && resultadoPerguntaId === pergunta.id) {
+                return;
+            }
+            
+            resultadoAtivo = true;
+            resultadoPerguntaId = pergunta.id;
+            resultadoRespostas = respostas;
             
             const container = document.getElementById('questaoContent');
             const titleElement = document.getElementById('questaoCardTitle');
@@ -704,10 +787,9 @@
                         ${alternativasStats}
                     </div>
                     
-                    <div style="margin-top: 20px; text-align: center; padding: 15px; background: #f3f4f6; border-radius: 16px;">
-                        <i class="fas fa-lightbulb"></i> 
-                        <strong>Momento de discussão:</strong> Analise com a turma os pontos positivos e as dificuldades encontradas.
-                    </div>
+                    <button class="btn-fechar-resultado" onclick="fecharResultado()">
+                        <i class="fas fa-check-double"></i> Fechar e Aguardar Próxima Questão
+                    </button>
                 </div>
             `;
             
@@ -717,7 +799,7 @@
             document.getElementById('percentualAcerto').textContent = percentualAcerto + '%';
             document.getElementById('statsRespostas').style.display = 'block';
             
-            // Atualizar gráfico
+            // Atualizar gráfico (manter o gráfico final)
             atualizarGrafico(respostas, pergunta);
         }
 
@@ -732,11 +814,12 @@
             
             // Caso 1: Tem uma questão ATIVA
             if (pergunta && pergunta.ativa === true) {
-                questaoFinalizada = false;
+                // Se estava mostrando resultado, limpar
+                resultadoAtivo = false;
+                
                 titleElement.innerHTML = '<i class="fas fa-question-circle"></i> Questão Atual';
                 iconElement.className = 'fas fa-hourglass-half';
                 
-                // Salvar a pergunta atual para uso futuro
                 ultimaPerguntaAtiva = pergunta;
                 questaoAtualId = pergunta.id;
                 
@@ -772,11 +855,9 @@
                             timerElement.style.color = '#ef4444';
                         }
                     }
-                    // Quando o tempo acabar, finalizar a questão automaticamente
                     if (tempoRestante <= 0) {
                         clearInterval(timerInterval);
                         timerInterval = null;
-                        // Não finalizar aqui, aguardar o Firebase atualizar
                     }
                 }, 1000);
                 
@@ -791,15 +872,17 @@
                 // Listener de respostas em tempo real
                 if (respostasListener) respostasListener.off();
                 respostasListener = window.db.ref(`respostas/${pergunta.id}`).on('value', (snapshot) => {
-                    const respostas = snapshot.val() || {};
-                    atualizarGrafico(respostas, pergunta);
-                    atualizarEstatisticas(respostas, pergunta);
+                    // Só atualiza gráfico se NÃO estiver mostrando resultado
+                    if (!resultadoAtivo) {
+                        const respostas = snapshot.val() || {};
+                        atualizarGrafico(respostas, pergunta);
+                        atualizarEstatisticas(respostas, pergunta);
+                    }
                 });
             } 
-            // Caso 2: Questão foi finalizada (ativa === false) E temos uma pergunta anterior salva
-            else if (pergunta && pergunta.ativa === false && pergunta.id === questaoAtualId && ultimaPerguntaAtiva && !questaoFinalizada) {
+            // Caso 2: Questão foi finalizada (ativa === false) E temos uma pergunta anterior salva E NÃO está já mostrando resultado
+            else if (pergunta && pergunta.ativa === false && pergunta.id === questaoAtualId && ultimaPerguntaAtiva && !resultadoAtivo) {
                 console.log("Questão finalizada! Exibindo resultado...");
-                questaoFinalizada = true;
                 
                 // Parar o timer
                 if (timerInterval) {
@@ -815,13 +898,12 @@
             }
             // Caso 3: Nova questão (diferente da anterior) - resetar estado
             else if (pergunta && pergunta.id !== questaoAtualId && pergunta.ativa === true) {
-                questaoFinalizada = false;
+                resultadoAtivo = false;
                 questaoAtualId = pergunta.id;
                 ultimaPerguntaAtiva = pergunta;
             }
-            // Caso 4: Sem questão ativa
-            else if (!pergunta) {
-                questaoFinalizada = false;
+            // Caso 4: Sem questão ativa e não está mostrando resultado
+            else if (!pergunta && !resultadoAtivo) {
                 container.innerHTML = `
                     <div class="nenhuma-questao">
                         <i class="fas fa-hourglass-half"></i>
@@ -1042,6 +1124,9 @@
                 atualizarRanking();
             });
         }
+
+        // Expor função global para o botão
+        window.fecharResultado = fecharResultado;
 
         function init() {
             listenToQuestao();
